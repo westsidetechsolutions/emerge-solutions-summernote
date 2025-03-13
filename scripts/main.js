@@ -194,6 +194,7 @@ $(document).ready(function() {
             ['style', ['style']],
             ['font', ['bold', 'italic', 'underline', 'clear']],
             ['fontname', ['fontname']],
+            ['fontsize', ['fontsize']],
             ['color', ['color']],
             ['para', ['ul', 'ol', 'paragraph']],
             ['height', ['height']],
@@ -202,6 +203,7 @@ $(document).ready(function() {
             ['misc', ['codeview']],
             ['view', ['fullscreen', 'codeview']]
         ],
+        fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '20', '22', '24', '28', '32', '36', '48', '64', '72'],
         // Remove status bar
         disableResizeEditor: true,
         // Customize placeholder

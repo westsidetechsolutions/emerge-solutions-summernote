@@ -243,7 +243,6 @@
   height: 10px;
   background: #e0e0e0;
   cursor: ns-resize;
-  z-index: 10000;
   border-top: 1px solid #ccc;
 }
 
