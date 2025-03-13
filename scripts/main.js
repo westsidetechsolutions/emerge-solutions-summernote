@@ -188,6 +188,7 @@ $(document).ready(function() {
         focus: true,
         toolbar: [
             ['font', ['bold', 'italic', 'underline', 'clear']],
+            ['history', ['undo', 'redo']],
             ['para', ['ul', 'ol']],
             ['table', ['table']],
             ['insert', ['link', 'picture', 'video', 'assetManager']],
