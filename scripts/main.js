@@ -409,4 +409,34 @@ $(document).ready(function() {
         // Reset mode when modal is closed
         $('#assetManagerModal').removeData('mode');
     });
+
+    // Add resize handle to the editor
+    const $editor = $('.note-editor');
+    const $editable = $('.note-editable');
+    
+    if ($editor.length && $editable.length) {
+        console.log('Found editor, adding resize handle');
+        
+        // Create and append the resize handle
+        const $resizeHandle = $('<div class="note-resize-handle"></div>').appendTo($editor);
+        
+        // Add event listener for resize handle
+        $resizeHandle.on('mousedown', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const startY = event.clientY;
+            const startHeight = $editable.outerHeight();
+            
+            $(document).on('mousemove', function(e) {
+                const height = startHeight + (e.clientY - startY);
+                
+                $editable.css({
+                    height: Math.max(height, 100) + 'px'
+                });
+            }).one('mouseup', function() {
+                $(document).off('mousemove');
+            });
+        });
+    }
 });
