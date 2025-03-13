@@ -191,12 +191,15 @@ $(document).ready(function() {
 
         fontNamesIgnoreCheck: ['Liberation Sans', 'Proximanova Regular'],
         toolbar: [
+            ['style', ['style']],
             ['font', ['bold', 'italic', 'underline', 'clear']],
             ['fontname', ['fontname']],
-            ['history', ['undo', 'redo']],
-            ['para', ['ul', 'ol']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['height', ['height']],
             ['table', ['table']],
             ['insert', ['link', 'picture', 'video', 'assetManager']],
+            ['misc', ['codeview']],
             ['view', ['fullscreen', 'codeview']]
         ],
         // Remove status bar
@@ -204,7 +207,7 @@ $(document).ready(function() {
         // Customize placeholder
         placeholder: 'Type something...',
         // Modern styling
-        styleTags: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+        styleTags: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre'],
         // Simplified popover
         popover: {
             image: [
