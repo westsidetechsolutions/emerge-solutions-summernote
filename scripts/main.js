@@ -222,7 +222,8 @@ $(document).ready(function() {
             ],
             table: [
                 ['add', ['addRowDown', 'addRowUp', 'addColLeft', 'addColRight']],
-                ['delete', ['deleteRow', 'deleteCol', 'deleteTable']]
+                ['delete', ['deleteRow', 'deleteCol', 'deleteTable']],
+                ['color', ['cellBackgroundColor']]
             ]
         },
         // Add these to your existing configuration
@@ -237,32 +238,29 @@ $(document).ready(function() {
             autoCloseTags: true,
             autoCloseBrackets: true,
             styleActiveLine: true
+        },
+        callbacks: {
+            onInit: function() {
+                console.log('Summernote initialized');
+                // Add table resizing functionality after Summernote is initialized
+                setTimeout(makeTablesResizable, 100);
+            },
+            onChange: function(contents, $editable) {
+                // When content changes, check for new tables and make them resizable
+                makeTablesResizable();
+            }
         }
     });
 
     // Load custom fonts CSS
     $('head').append('<link rel="stylesheet" href="/fonts/fonts.css">');
 
-    // Style the font dropdown to show actual font previews
-    $(document).ready(function() {
-        // Apply custom fonts to the dropdown items after Summernote is fully initialized
-        setTimeout(function() {
-            $('.note-fontname .dropdown-menu a').each(function() {
-                const fontName = $(this).data('value');
-                // Apply the font family to the dropdown item itself
-                $(this).css('font-family', fontName);
-            });
-        }, 100);
-    });
+    // Note: The cell background color functionality is provided by the external plugin in summernote-cell-background.js
 
-    function uploadImage(file) {
-        const reader = new FileReader();
-        reader.onloadend = function() {
-            const image = $('<img>').attr('src', reader.result);
-            $('#summernote').summernote('insertNode', image[0]);
-        }
-        reader.readAsDataURL(file);
-    }
+    // Style the font dropdown to show actual font previews
+
+    // Completely rewrite the table cell background color implementation
+    // Create a simpler implementation that works with Summernote's built-in systems
     
     // Override the link dialog to include asset manager option
     $(document).on('click', '.note-link-btn', function(e) {
@@ -463,6 +461,115 @@ $(document).ready(function() {
             }).one('mouseup', function() {
                 $(document).off('mousemove');
             });
+        });
+    }
+
+    // Function to make table columns resizable
+    function makeTablesResizable() {
+        const $editor = $('.note-editable');
+        
+        // Find all tables in the editor
+        $editor.find('table').each(function() {
+            const $table = $(this);
+            
+            // Skip if already processed
+            if ($table.hasClass('resizable-added')) return;
+            
+            // Mark as processed
+            $table.addClass('resizable-added');
+            
+            // Create column resize handles for the entire table
+            const $headerRow = $table.find('tr:first');
+            const columnCount = $headerRow.find('th, td').length;
+            
+            // Create a container for the resize handles
+            const $resizeContainer = $('<div class="table-resize-container"></div>').css({
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none'
+            });
+            
+            // Position the table relatively to allow absolute positioning of handles
+            $table.css('position', 'relative').append($resizeContainer);
+            
+            // Add resize handles between columns
+            for (let i = 0; i < columnCount - 1; i++) {
+                const cells = $table.find(`tr td:nth-child(${i + 1}), tr th:nth-child(${i + 1})`);
+                if (cells.length === 0) continue;
+                
+                // Calculate position for the resize handle
+                const lastCell = cells.last();
+                const cellRight = cells.first().position().left + cells.first().outerWidth();
+                
+                // Create the resize handle that spans the entire height of the table
+                const $resizeHandle = $('<div class="column-resize-handle"></div>').css({
+                    position: 'absolute',
+                    top: 0,
+                    left: cellRight - 3,
+                    width: '6px',
+                    height: '100%',
+                    cursor: 'col-resize',
+                    pointerEvents: 'auto',
+                    zIndex: 1
+                });
+                
+                $resizeContainer.append($resizeHandle);
+                
+                // Add event listener for resize handle
+                $resizeHandle.on('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const startX = e.pageX;
+                    const columnCells = $table.find(`tr td:nth-child(${i + 1}), tr th:nth-child(${i + 1})`);
+                    const nextColumnCells = $table.find(`tr td:nth-child(${i + 2}), tr th:nth-child(${i + 2})`);
+                    const startWidth = columnCells.first().outerWidth();
+                    const tableWidth = $table.width();
+                    
+                    // Add overlay to capture mouse events
+                    const $overlay = $('<div class="resize-overlay"></div>').css({
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        cursor: 'col-resize',
+                        zIndex: 9999
+                    }).appendTo('body');
+                    
+                    $overlay.on('mousemove', function(e) {
+                        const diffX = e.pageX - startX;
+                        const newWidth = Math.max(20, startWidth + diffX);
+                        
+                        // Set width for all cells in this column
+                        columnCells.width(newWidth);
+                        
+                        // Update the position of this and all subsequent resize handles
+                        updateResizeHandlePositions($table);
+                    });
+                    
+                    $overlay.on('mouseup', function() {
+                        $overlay.remove();
+                    });
+                });
+            }
+        });
+    }
+    
+    // Function to update resize handle positions after resizing
+    function updateResizeHandlePositions($table) {
+        const $handles = $table.find('.column-resize-handle');
+        const $headerRow = $table.find('tr:first');
+        
+        $headerRow.find('th, td').each(function(index, cell) {
+            if (index < $handles.length) {
+                const $cell = $(cell);
+                const cellRight = $cell.position().left + $cell.outerWidth();
+                $($handles[index]).css('left', cellRight - 3);
+            }
         });
     }
 });

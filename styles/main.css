@@ -335,3 +335,25 @@
 .note-fontname .dropdown-menu a.checked {
     background-color: #e6f2ff;
 }
+
+.column-resize-handle {
+    background-color: transparent;
+    transition: background-color 0.2s;
+}
+
+.column-resize-handle:hover,
+.column-resize-handle:active {
+    background-color: #0d6efd;
+}
+
+/* Make sure tables have proper styling for resizing */
+.note-editable table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.note-editable table td,
+.note-editable table th {
+    overflow: hidden;
+}
