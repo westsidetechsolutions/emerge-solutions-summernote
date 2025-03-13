@@ -186,8 +186,13 @@ $(document).ready(function() {
         minHeight: null,
         maxHeight: null,
         focus: true,
+        fontNames: ['Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Helvetica', 'Impact', 'Tahoma', 'Times New Roman', 'Verdana', 
+            'Liberation Sans', 'Proximanova Regular'],
+
+        fontNamesIgnoreCheck: ['Liberation Sans', 'Proximanova Regular'],
         toolbar: [
             ['font', ['bold', 'italic', 'underline', 'clear']],
+            ['fontname', ['fontname']],
             ['history', ['undo', 'redo']],
             ['para', ['ul', 'ol']],
             ['table', ['table']],
@@ -228,6 +233,21 @@ $(document).ready(function() {
             autoCloseBrackets: true,
             styleActiveLine: true
         }
+    });
+
+    // Load custom fonts CSS
+    $('head').append('<link rel="stylesheet" href="/fonts/fonts.css">');
+
+    // Style the font dropdown to show actual font previews
+    $(document).ready(function() {
+        // Apply custom fonts to the dropdown items after Summernote is fully initialized
+        setTimeout(function() {
+            $('.note-fontname .dropdown-menu a').each(function() {
+                const fontName = $(this).data('value');
+                // Apply the font family to the dropdown item itself
+                $(this).css('font-family', fontName);
+            });
+        }, 100);
     });
 
     function uploadImage(file) {
