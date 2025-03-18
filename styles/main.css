@@ -357,3 +357,27 @@
 .note-editable table th {
     overflow: hidden;
 }
+
+.video-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.video-resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #4285f4;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+.video-resize-handle:hover {
+    background: #2a75f3;
+}
+
+.handle-nw { top: -5px; left: -5px; cursor: nw-resize; }
+.handle-ne { top: -5px; right: -5px; cursor: ne-resize; }
+.handle-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.handle-se { bottom: -5px; right: -5px; cursor: se-resize; }

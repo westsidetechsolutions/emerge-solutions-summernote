@@ -224,6 +224,11 @@ $(document).ready(function() {
                 ['add', ['addRowDown', 'addRowUp', 'addColLeft', 'addColRight']],
                 ['delete', ['deleteRow', 'deleteCol', 'deleteTable']],
                 ['color', ['cellBackgroundColor']]
+            ],
+            video: [
+                ['videosize', ['videoSize100', 'videoSize75', 'videoSize50']],
+                ['float', ['floatLeft', 'floatRight', 'floatNone']],
+                ['remove', ['removeMedia']]
             ]
         },
         // Add these to your existing configuration
@@ -242,12 +247,16 @@ $(document).ready(function() {
         callbacks: {
             onInit: function() {
                 console.log('Summernote initialized');
-                // Add table resizing functionality after Summernote is initialized
-                setTimeout(makeTablesResizable, 100);
+                // Add resize functionality after Summernote is initialized
+                setTimeout(function() {
+                    makeTablesResizable();
+                    makeVideosResizable();
+                }, 100);
             },
             onChange: function(contents, $editable) {
-                // When content changes, check for new tables and make them resizable
+                // When content changes, check for new elements and make them resizable
                 makeTablesResizable();
+                makeVideosResizable();
             }
         }
     });
@@ -572,4 +581,211 @@ $(document).ready(function() {
             }
         });
     }
+
+    // Function to make videos and iframes resizable
+    function makeVideosResizable() {
+        const $editor = $('.note-editable');
+        
+        // Find all videos and iframes in the editor
+        $editor.find('iframe, video').each(function() {
+            const $media = $(this);
+            
+            // Skip if already processed
+            if ($media.hasClass('resizable-video-added')) return;
+            
+            // Mark as processed
+            $media.addClass('resizable-video-added');
+            
+            // Create resize handles for all four corners
+            const handles = ['nw', 'ne', 'sw', 'se'];
+            const $container = $('<div class="video-resize-container"></div>').css({
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none'
+            });
+            
+            // Add wrapper to allow absolute positioning
+            if (!$media.parent().hasClass('video-wrapper')) {
+                $media.wrap('<div class="video-wrapper"></div>');
+            }
+            
+            const $wrapper = $media.parent('.video-wrapper');
+            $wrapper.css({
+                position: 'relative',
+                display: 'inline-block',
+                width: $media.width(),
+                height: $media.height()
+            });
+            
+            $wrapper.append($container);
+            
+            // Add resize handles to each corner
+            handles.forEach(handle => {
+                const $handle = $('<div class="video-resize-handle"></div>');
+                $handle.addClass('handle-' + handle).css({
+                    position: 'absolute',
+                    width: '10px',
+                    height: '10px',
+                    background: '#4285f4',
+                    border: '1px solid #fff',
+                    borderRadius: '50%',
+                    pointerEvents: 'auto',
+                    cursor: handle + '-resize',
+                    zIndex: 10
+                });
+                
+                // Position the handle
+                if (handle.includes('n')) $handle.css('top', '-5px');
+                if (handle.includes('s')) $handle.css('bottom', '-5px');
+                if (handle.includes('w')) $handle.css('left', '-5px');
+                if (handle.includes('e')) $handle.css('right', '-5px');
+                
+                $container.append($handle);
+                
+                // Add event listener for resize
+                $handle.on('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    const startWidth = $media.width();
+                    const startHeight = $media.height();
+                    const ratio = startWidth / startHeight;
+                    const isNorth = handle.includes('n');
+                    const isSouth = handle.includes('s');
+                    const isWest = handle.includes('w');
+                    const isEast = handle.includes('e');
+                    
+                    // Add overlay to capture mouse events
+                    const $overlay = $('<div class="resize-overlay"></div>').css({
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        cursor: handle + '-resize',
+                        zIndex: 9999
+                    }).appendTo('body');
+                    
+                    $overlay.on('mousemove', function(e) {
+                        let newWidth = startWidth;
+                        let newHeight = startHeight;
+                        
+                        if (isEast || isWest) {
+                            const diffX = isEast ? (e.clientX - startX) : (startX - e.clientX);
+                            newWidth = Math.max(50, startWidth + diffX);
+                            newHeight = newWidth / ratio;
+                        } else if (isNorth || isSouth) {
+                            const diffY = isSouth ? (e.clientY - startY) : (startY - e.clientY);
+                            newHeight = Math.max(50, startHeight + diffY);
+                            newWidth = newHeight * ratio;
+                        }
+                        
+                        // Update media dimensions
+                        $media.css({
+                            width: newWidth + 'px',
+                            height: newHeight + 'px'
+                        });
+                        
+                        // Update wrapper dimensions
+                        $wrapper.css({
+                            width: newWidth + 'px',
+                            height: newHeight + 'px'
+                        });
+                    });
+                    
+                    $overlay.on('mouseup', function() {
+                        $overlay.remove();
+                    });
+                });
+            });
+        });
+    }
+
+    // Create plugin for video sizing
+    $.extend($.summernote.plugins, {
+        'videosize': function(context) {
+            const ui = $.summernote.ui;
+            const $editable = context.layoutInfo.editable;
+            const options = context.options;
+            const lang = options.langInfo;
+            
+            context.memo('button.videoSize100', function() {
+                return ui.button({
+                    contents: '<span class="note-fontsize-10">100%</span>',
+                    tooltip: 'Full Size',
+                    click: function() {
+                        const $target = $(context.invoke('editor.restoreTarget'));
+                        if ($target.is('iframe, video')) {
+                            const $wrapper = $target.parent('.video-wrapper');
+                            if ($wrapper.length) {
+                                // Reset to original dimensions or set to 100%
+                                $target.css({
+                                    width: '100%',
+                                    height: 'auto'
+                                });
+                                
+                                $wrapper.css({
+                                    width: '100%',
+                                    height: 'auto'
+                                });
+                            }
+                        }
+                    }
+                }).render();
+            });
+            
+            context.memo('button.videoSize75', function() {
+                return ui.button({
+                    contents: '<span class="note-fontsize-10">75%</span>',
+                    tooltip: '75% Size',
+                    click: function() {
+                        const $target = $(context.invoke('editor.restoreTarget'));
+                        if ($target.is('iframe, video')) {
+                            const $wrapper = $target.parent('.video-wrapper');
+                            if ($wrapper.length) {
+                                $target.css({
+                                    width: '75%',
+                                    height: 'auto'
+                                });
+                                
+                                $wrapper.css({
+                                    width: '75%',
+                                    height: 'auto'
+                                });
+                            }
+                        }
+                    }
+                }).render();
+            });
+            
+            context.memo('button.videoSize50', function() {
+                return ui.button({
+                    contents: '<span class="note-fontsize-10">50%</span>',
+                    tooltip: 'Half Size',
+                    click: function() {
+                        const $target = $(context.invoke('editor.restoreTarget'));
+                        if ($target.is('iframe, video')) {
+                            const $wrapper = $target.parent('.video-wrapper');
+                            if ($wrapper.length) {
+                                $target.css({
+                                    width: '50%',
+                                    height: 'auto'
+                                });
+                                
+                                $wrapper.css({
+                                    width: '50%',
+                                    height: 'auto'
+                                });
+                            }
+                        }
+                    }
+                }).render();
+            });
+        }
+    });
 });
