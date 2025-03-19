@@ -319,14 +319,25 @@ $(document).ready(function() {
         }
     });
 
-    $('#uploadBtn').click(() => {
-        $('#assetUpload').click();
+    $('#uploadBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Reset the input and trigger file selection dialog
+        const fileInput = $('#assetUpload')[0];
+        fileInput.value = '';
+        fileInput.click();
     });
 
-    $('#assetUpload').on('change', function(e) {
-        Array.from(e.target.files).forEach(file => {
-            assetStore.addFile(file);
-        });
+    $('#assetUpload').off('change').on('change', function(e) {
+        e.preventDefault();
+        
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            Array.from(files).forEach(file => {
+                assetStore.addFile(file);
+            });
+        }
     });
 
     $('#selectAssetBtn').click(() => {
@@ -347,71 +358,75 @@ $(document).ready(function() {
             }
         }
         
-        if (selectedId) {
-            // Special case for back button
-            if (selectedId === 'back') {
-                alert('Please select a file, not the back button');
-                return;
-            }
-            
-            // Find the selected item in the current folder
-            const currentFolder = assetStore.getCurrentFolder();
-            console.log('Current folder children:', currentFolder.children);
-            
-            // Convert selectedId to string to ensure consistent comparison
-            const item = currentFolder.children.find(
-                child => String(child.id) === String(selectedId)
-            );
-            
-            
-            if (item && item.type === 'file') {
-                const mode = $('#assetManagerModal').data('mode') || 'insert';
-                
-                if (mode === 'link') {
-                    // For link dialog
-                    $('.note-link-text').val($('.note-link-text').val() || item.name);
-                    $('.note-link-url').val(item.data);
-                    $('.note-link-btn').removeClass('disabled');
-                    console.log('Link dialog updated');
-                } else {
-                    // Direct insert
-                    if (item.mimeType && item.mimeType.startsWith('image/')) {
-                        // Insert image directly into the editor
-                        console.log('Inserting image:', item.name, 'with data URL length:', item.data.length);
-                        
-                        // Create an image element and insert it
-                        const image = $('<img>')
-                            .attr('src', item.data)
-                            .attr('alt', item.name)
-                            .css('max-width', '100%');
-                        
-                        $('#summernote').summernote('insertNode', image[0]);
-                        
-                        console.log('Image inserted');
-                    } else {
-                        // Insert as a link
-                        console.log('Inserting link:', item.name);
-                        $('#summernote').summernote('createLink', {
-                            text: item.name,
-                            url: item.data,
-                            isNewWindow: true
-                        });
-                        console.log('Link inserted');
-                    }
-                }
-                $('#assetManagerModal').modal('hide');
-            } else {
-                // If it's a folder, don't do anything or show a message
-                if (item && item.type === 'folder') {
-                    alert('Please select a file, not a folder');
-                } else {
-                    alert('Could not find the selected item');
-                    console.error('Item not found for ID:', selectedId);
-                }
-            }
-        } else {
+        if (!selectedId) {
             alert('Please select an asset first');
+            return;
         }
+        
+        // Special case for back button
+        if (selectedId === 'back') {
+            alert('Please select a file, not the back button');
+            return;
+        }
+        
+        // Find the selected item in the current folder
+        const currentFolder = assetStore.getCurrentFolder();
+        console.log('Current folder children:', currentFolder.children);
+        
+        // Convert selectedId to string to ensure consistent comparison
+        const item = currentFolder.children.find(
+            child => String(child.id) === String(selectedId)
+        );
+        
+        if (!item) {
+            console.error('Item not found for ID:', selectedId);
+            // Don't show alert here since the item may have been processed already
+            return;
+        }
+        
+        if (item.type === 'folder') {
+            alert('Please select a file, not a folder');
+            return;
+        }
+        
+        // Now we're sure this is a file and we found it
+        const mode = $('#assetManagerModal').data('mode') || 'insert';
+        
+        if (mode === 'link') {
+            // For link dialog
+            $('.note-link-text').val($('.note-link-text').val() || item.name);
+            $('.note-link-url').val(item.data);
+            $('.note-link-btn').removeClass('disabled');
+            console.log('Link dialog updated');
+        } else {
+            // Direct insert
+            if (item.mimeType && item.mimeType.startsWith('image/')) {
+                // Insert image directly into the editor
+                console.log('Inserting image:', item.name, 'with data URL length:', item.data.length);
+                
+                // Create an image element and insert it
+                const image = $('<img>')
+                    .attr('src', item.data)
+                    .attr('alt', item.name)
+                    .css('max-width', '100%');
+                
+                $('#summernote').summernote('insertNode', image[0]);
+                
+                console.log('Image inserted');
+            } else {
+                // Insert as a link
+                console.log('Inserting link:', item.name);
+                $('#summernote').summernote('createLink', {
+                    text: item.name,
+                    url: item.data,
+                    isNewWindow: true
+                });
+                console.log('Link inserted');
+            }
+        }
+        
+        // Close the modal when done
+        $('#assetManagerModal').modal('hide');
     });
 
     // Selection handlers for both views
