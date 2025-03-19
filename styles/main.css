@@ -381,3 +381,60 @@
 .handle-ne { top: -5px; right: -5px; cursor: ne-resize; }
 .handle-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
 .handle-se { bottom: -5px; right: -5px; cursor: se-resize; }
+
+/* Styling for the delete buttons */
+.delete-btn {
+    padding: 2px 5px;
+    margin-left: 8px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+}
+
+/* List view specific */
+#assetTree li {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+}
+
+.item-container {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Grid view specific */
+.asset-item {
+    position: relative;
+}
+
+.grid-delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.7em;
+    display: none;
+}
+
+.asset-item:hover .grid-delete-btn {
+    display: block;
+}
+
+/* Style for Clear All button */
+#clearAllAssetsBtn {
+    margin-left: auto;
+    margin-right: 10px;
+}
+
+/* Ensure modal header has proper alignment */
+.modal-header {
+    display: flex;
+    align-items: center;
+}

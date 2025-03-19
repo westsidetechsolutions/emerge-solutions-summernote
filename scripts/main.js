@@ -189,17 +189,42 @@ $(document).ready(function() {
             const renderListItem = (item) => {
                 const li = $('<li>')
                     .addClass(item.type)
-                    .text(item.name)
                     .attr('data-id', item.id);
                 
+                // Create container for the item name and delete button
+                const itemContainer = $('<div>').addClass('item-container');
+                
+                // Add the appropriate icon and name
                 if (item.type === 'folder') {
-                    li.prepend('<i class="fas fa-folder"></i> ');
+                    itemContainer.append('<i class="fas fa-folder"></i> ');
+                    itemContainer.append($('<span>').text(item.name));
+                    
+                    li.append(itemContainer);
                     li.on('dblclick', () => {
                         this.navigateToFolder(item.id);
                     });
                 } else {
-                    li.prepend('<i class="fas fa-file"></i> ');
+                    itemContainer.append('<i class="fas fa-file"></i> ');
+                    itemContainer.append($('<span>').text(item.name));
+                    
+                    li.append(itemContainer);
                 }
+                
+                // Add delete button
+                const deleteBtn = $('<button>')
+                    .addClass('btn btn-sm btn-danger delete-btn')
+                    .html('<i class="fas fa-trash"></i>')
+                    .attr('title', 'Delete')
+                    .on('click', (e) => {
+                        e.stopPropagation(); // Prevent triggering other click events
+                        
+                        if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                            this.deleteItem(item.id);
+                        }
+                    });
+                
+                li.append(deleteBtn);
+                
                 return li;
             };
             
@@ -262,7 +287,20 @@ $(document).ready(function() {
                 
                 const name = $('<div>').addClass('asset-name').text(item.name);
                 
-                gridItem.append(thumbnail).append(name);
+                // Add delete button for grid items
+                const deleteBtn = $('<button>')
+                    .addClass('btn btn-sm btn-danger delete-btn grid-delete-btn')
+                    .html('<i class="fas fa-trash"></i>')
+                    .attr('title', 'Delete')
+                    .on('click', (e) => {
+                        e.stopPropagation(); // Prevent triggering selection
+                        
+                        if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                            this.deleteItem(item.id);
+                        }
+                    });
+                
+                gridItem.append(thumbnail).append(name).append(deleteBtn);
                 grid.append(gridItem);
             });
             
@@ -284,6 +322,85 @@ $(document).ready(function() {
                 this.currentPath.push(folderId); // Go into the folder
             }
             this.saveToSessionStorage(); // Save the navigation state
+            this.renderTree();
+        },
+        
+        deleteItem: function(itemId) {
+            // Find the parent folder containing the item
+            let currentFolder = this.getCurrentFolder();
+            
+            // Find the item index in the current folder's children
+            const itemIndex = currentFolder.children.findIndex(
+                child => String(child.id) === String(itemId)
+            );
+            
+            if (itemIndex !== -1) {
+                const item = currentFolder.children[itemIndex];
+                
+                // Check if it's a folder and not empty
+                if (item.type === 'folder' && item.children && item.children.length > 0) {
+                    alert('Cannot delete non-empty folder. Please delete its contents first.');
+                    return false;
+                }
+                
+                // Remove the item from the array
+                currentFolder.children.splice(itemIndex, 1);
+                
+                // If the item is a file with a dataRef, clean up session storage
+                if (item.type === 'file' && item.dataRef) {
+                    try {
+                        sessionStorage.removeItem(item.dataRef);
+                    } catch(e) {
+                        console.error('Failed to remove file data from session storage:', e);
+                    }
+                }
+                
+                // Save changes to session storage
+                this.saveToSessionStorage();
+                // Refresh the display
+                this.renderTree();
+                return true;
+            }
+            
+            return false;
+        },
+        clearAll: function() {
+            // Reset the root folder to empty
+            this.root = {
+                name: 'Root',
+                type: 'folder',
+                children: []
+            };
+            
+            // Reset navigation to root
+            this.currentPath = ['root'];
+            
+            // Clear all asset-related items from session storage
+            try {
+                // Clear the main asset structure
+                sessionStorage.removeItem('assetManagerRoot');
+                sessionStorage.removeItem('assetManagerCurrentPath');
+                
+                // Find and clear all asset file data entries
+                const keysToRemove = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && key.startsWith('asset_file_')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                // Remove each asset file entry
+                keysToRemove.forEach(key => {
+                    sessionStorage.removeItem(key);
+                });
+                
+                console.log('Asset manager cleared successfully');
+            } catch(e) {
+                console.error('Error clearing asset manager:', e);
+            }
+            
+            // Update the UI
             this.renderTree();
         }
     };
@@ -439,7 +556,7 @@ $(document).ready(function() {
     });
 
     // Asset Manager Event Handlers
-    $('#createFolderBtn').click(() => {
+    $('#createFolderBtn').off('click').on('click', function() {
         const folderName = prompt('Enter folder name:');
         if (folderName) {
             assetStore.addFolder(folderName);
@@ -557,18 +674,24 @@ $(document).ready(function() {
     });
 
     // Selection handlers for both views
-    $('#assetTree').on('click', 'li', function() {
-        $('#assetTree li').removeClass('selected');
-        $('#assetGrid .asset-item').removeClass('selected');
-        $(this).addClass('selected');
-        console.log('Selected tree item:', $(this).text(), 'ID:', $(this).data('id'));
+    $('#assetTree').on('click', 'li', function(e) {
+        // Don't select if clicking on the delete button
+        if ($(e.target).closest('.delete-btn').length === 0) {
+            $('#assetTree li').removeClass('selected');
+            $('#assetGrid .asset-item').removeClass('selected');
+            $(this).addClass('selected');
+            console.log('Selected tree item:', $(this).find('span').text(), 'ID:', $(this).data('id'));
+        }
     });
     
-    $('#assetGrid').on('click', '.asset-item', function() {
-        $('#assetTree li').removeClass('selected');
-        $('#assetGrid .asset-item').removeClass('selected');
-        $(this).addClass('selected');
-        console.log('Selected grid item:', $(this).find('.asset-name').text(), 'ID:', $(this).data('id'));
+    $('#assetGrid').on('click', '.asset-item', function(e) {
+        // Don't select if clicking on the delete button
+        if ($(e.target).closest('.delete-btn').length === 0) {
+            $('#assetTree li').removeClass('selected');
+            $('#assetGrid .asset-item').removeClass('selected');
+            $(this).addClass('selected');
+            console.log('Selected grid item:', $(this).find('.asset-name').text(), 'ID:', $(this).data('id'));
+        }
     });
 
     // Initialize on modal show
@@ -941,4 +1064,11 @@ $(document).ready(function() {
         // If no data was found, initialize with a default empty structure
         console.log('No saved data found, starting with empty asset manager');
     }
+
+    // Alternative approach using event delegation
+    $(document).off('click', '#clearAllAssetsBtn').on('click', '#clearAllAssetsBtn', function() {
+        if (confirm('Are you sure you want to clear ALL assets and folders? This cannot be undone.')) {
+            assetStore.clearAll();
+        }
+    });
 });
