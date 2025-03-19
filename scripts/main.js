@@ -421,10 +421,28 @@ $(document).ready(function() {
         return button.render(); // return button as jquery object
     }
 
+    // Replace the existing link button handling with this custom implementation
+    var LinkButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // Create a custom button that replaces the standard link button
+        var button = ui.button({
+            contents: '<i class="fas fa-link"/>',
+            tooltip: 'Link',
+            click: function () {
+                // When clicked, show our custom modal with two options instead of default link dialog
+                $('#linkOptionsModal').modal('show');
+            }
+        });
+      
+        return button.render();
+    };
+
     // Initialize Summernote
     $('#summernote').summernote({
         buttons: {
-            assetManager: AssetManagerButton
+            assetManager: AssetManagerButton,
+            linkCustom: LinkButton
         },
         height: 400,
         minHeight: null,
@@ -443,7 +461,7 @@ $(document).ready(function() {
             ['para', ['ul', 'ol', 'paragraph']],
             ['height', ['height']],
             ['table', ['table']],
-            ['insert', ['link', 'picture', 'video', 'assetManager']],
+            ['insert', ['linkCustom', 'picture', 'video', 'assetManager']],
             ['misc', ['codeview']],
             ['view', ['fullscreen', 'codeview']]
         ],
@@ -515,29 +533,59 @@ $(document).ready(function() {
     // Completely rewrite the table cell background color implementation
     // Create a simpler implementation that works with Summernote's built-in systems
     
-    // Override the link dialog to include asset manager option
-    $(document).on('click', '.note-link-btn', function(e) {
-        e.preventDefault();
+    // Add this to your document ready function to create the link options modal
+    const linkOptionsModal = `
+    <div class="modal fade" id="linkOptionsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Insert Link</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 text-center">
+                            <button id="manualLinkBtn" class="btn btn-primary btn-lg">
+                                <i class="fas fa-link"></i><br>
+                                Manual Link
+                            </button>
+                        </div>
+                        <div class="col-md-6 text-center">
+                            <button id="assetLinkBtn" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-folder-open"></i><br>
+                                From Asset Manager
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    $('body').append(linkOptionsModal);
+
+    // Handle the link option buttons
+    $('#manualLinkBtn').click(function() {
+        // Close our modal
+        $('#linkOptionsModal').modal('hide');
         
-        // Store the original link dialog
-        const originalDialog = $('.note-link-dialog');
-        if (originalDialog.length) {
-            // Add asset manager button to the dialog
-            if (!originalDialog.find('.asset-manager-link-btn').length) {
-                const assetBtn = $('<button>')
-                    .addClass('btn btn-primary asset-manager-link-btn')
-                    .html('<i class="fas fa-folder-open"></i> Choose from Asset Manager')
-                    .css('margin-top', '10px')
-                    .on('click', function(e) {
-                        e.preventDefault();
-                        $('#assetManagerModal').data('mode', 'link').modal('show');
-                    });
-                
-                originalDialog.find('.form-group').last().after(
-                    $('<div class="form-group">').append(assetBtn)
-                );
-            }
-        }
+        // We need to trigger the native Summernote link dialog
+        // Instead of calling createLink directly, which doesn't show the dialog
+        setTimeout(function() {
+            // Use the native Summernote command to show the link dialog
+            $('#summernote').summernote('linkDialog.show');
+        }, 100);  // Small delay to ensure our modal is closed first
+    });
+
+    $('#assetLinkBtn').click(function() {
+        // Close our modal
+        $('#linkOptionsModal').modal('hide');
+        
+        // Open the asset manager with link mode
+        $('#assetManagerModal').data('mode', 'link').modal('show');
     });
 
     // View toggle handlers
