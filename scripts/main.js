@@ -8,6 +8,124 @@ $(document).ready(function() {
         },
         currentPath: ['root'],
         
+        // Add these methods for session storage
+        saveToSessionStorage: function() {
+            try {
+                // Convert any large binary data to references to avoid session storage limits
+                const storableData = this.prepareForStorage(JSON.parse(JSON.stringify(this.root)));
+                
+                // Store the processed data structure
+                sessionStorage.setItem('assetManagerRoot', JSON.stringify(storableData));
+                
+                // Store the current path separately
+                sessionStorage.setItem('assetManagerCurrentPath', JSON.stringify(this.currentPath));
+                
+                console.log('Asset manager data saved to session storage');
+            } catch(e) {
+                console.error('Failed to save to session storage:', e);
+            }
+        },
+        
+        loadFromSessionStorage: function() {
+            try {
+                // Load the root structure
+                const rootData = sessionStorage.getItem('assetManagerRoot');
+                if (rootData) {
+                    const parsedRoot = JSON.parse(rootData);
+                    // Restore any binary data from separate storage
+                    this.root = this.restoreFromStorage(parsedRoot);
+                    console.log('Loaded asset structure from session storage');
+                }
+                
+                // Load the current path
+                const pathData = sessionStorage.getItem('assetManagerCurrentPath');
+                if (pathData) {
+                    this.currentPath = JSON.parse(pathData);
+                    console.log('Restored navigation path from session storage');
+                }
+                
+                return !!rootData; // Return true if we loaded data
+            } catch(e) {
+                console.error('Failed to load from session storage:', e);
+                return false;
+            }
+        },
+        
+        prepareForStorage: function(dataObj) {
+            // Make a deep copy we can modify
+            const processedObj = {...dataObj};
+            
+            if (processedObj.children) {
+                // Process each child
+                processedObj.children = processedObj.children.map(child => {
+                    if (child.type === 'folder') {
+                        // Recursively process folder children
+                        return this.prepareForStorage(child);
+                    } else if (child.type === 'file' && child.data && child.data.length > 50000) {
+                        // For large files, store data separately to avoid session storage limits
+                        const storageKey = 'asset_file_' + child.id;
+                        try {
+                            sessionStorage.setItem(storageKey, child.data);
+                            // Replace actual data with reference
+                            const storedChild = {...child};
+                            storedChild.data = null; // Clear the data
+                            storedChild.dataRef = storageKey; // Save reference to where data is stored
+                            return storedChild;
+                        } catch(e) {
+                            console.error('Failed to store large file data:', e);
+                            // Return child with shortened data if we couldn't store it separately
+                            const fallbackChild = {...child};
+                            fallbackChild.data = fallbackChild.data.substring(0, 100) + '... [truncated due to storage limits]';
+                            return fallbackChild;
+                        }
+                    } else {
+                        // Return file as is if it's small enough
+                        return child;
+                    }
+                });
+            }
+            
+            return processedObj;
+        },
+        
+        restoreFromStorage: function(dataObj) {
+            const restoredObj = {...dataObj};
+            
+            if (restoredObj.children) {
+                // Process each child to restore data
+                restoredObj.children = restoredObj.children.map(child => {
+                    if (child.type === 'folder') {
+                        // Recursively restore folder children
+                        return this.restoreFromStorage(child);
+                    } else if (child.type === 'file' && child.dataRef) {
+                        // For files with external data reference, restore the data
+                        try {
+                            const storedData = sessionStorage.getItem(child.dataRef);
+                            const restoredChild = {...child};
+                            
+                            if (storedData) {
+                                restoredChild.data = storedData;
+                            } else {
+                                console.warn('Could not find stored data for:', child.name);
+                                restoredChild.data = ''; // Provide empty data if we couldn't restore
+                            }
+                            
+                            delete restoredChild.dataRef; // Remove the reference
+                            return restoredChild;
+                        } catch(e) {
+                            console.error('Failed to restore file data:', e);
+                            return child;
+                        }
+                    } else {
+                        // Return file as is
+                        return child;
+                    }
+                });
+            }
+            
+            return restoredObj;
+        },
+        
         getCurrentFolder: function() {
             let current = this.root;
             for (let i = 1; i < this.currentPath.length; i++) {
@@ -26,6 +144,7 @@ $(document).ready(function() {
                 children: []
             };
             this.getCurrentFolder().children.push(folder);
+            this.saveToSessionStorage(); // Save after making changes
             this.renderTree();
         },
         
@@ -40,6 +159,7 @@ $(document).ready(function() {
                     mimeType: file.type
                 };
                 this.getCurrentFolder().children.push(fileData);
+                this.saveToSessionStorage(); // Save after making changes
                 this.renderTree();
             };
             reader.readAsDataURL(file);
@@ -75,8 +195,7 @@ $(document).ready(function() {
                 if (item.type === 'folder') {
                     li.prepend('<i class="fas fa-folder"></i> ');
                     li.on('dblclick', () => {
-                        this.currentPath.push(item.id);
-                        this.renderTree();
+                        this.navigateToFolder(item.id);
                     });
                 } else {
                     li.prepend('<i class="fas fa-file"></i> ');
@@ -91,8 +210,7 @@ $(document).ready(function() {
                         .addClass('folder up')
                         .html('<i class="fas fa-level-up-alt"></i> ..')
                         .on('click', () => {
-                            this.currentPath.pop();
-                            this.renderTree();
+                            this.navigateToFolder('back');
                         })
                 );
             }
@@ -106,8 +224,7 @@ $(document).ready(function() {
                     .addClass('asset-item folder')
                     .attr('data-id', 'back')
                     .on('click', () => {
-                        this.currentPath.pop();
-                        this.renderTree();
+                        this.navigateToFolder('back');
                     });
                 
                 const thumbnail = $('<div>').addClass('asset-thumbnail');
@@ -135,8 +252,7 @@ $(document).ready(function() {
                 if (item.type === 'folder') {
                     thumbnail.append('<i class="fas fa-folder"></i>');
                     gridItem.on('dblclick', () => {
-                        this.currentPath.push(item.id);
-                        this.renderTree();
+                        this.navigateToFolder(item.id);
                     });
                 } else if (item.mimeType && item.mimeType.startsWith('image/')) {
                     thumbnail.append($('<img>').attr('src', item.data));
@@ -158,6 +274,17 @@ $(document).ready(function() {
                 $('#assetGrid').hide();
                 $('#assetTree').show();
             }
+        },
+        
+        // Add this new method to update currentPath and save to storage
+        navigateToFolder: function(folderId) {
+            if (folderId === 'back' || folderId === 'up') {
+                this.currentPath.pop(); // Go up one level
+            } else {
+                this.currentPath.push(folderId); // Go into the folder
+            }
+            this.saveToSessionStorage(); // Save the navigation state
+            this.renderTree();
         }
     };
 
@@ -803,4 +930,15 @@ $(document).ready(function() {
             });
         }
     });
+
+    // Try to load data from session storage on page load
+    const dataLoaded = assetStore.loadFromSessionStorage();
+    
+    if (dataLoaded) {
+        // If we loaded data, render the tree
+        assetStore.renderTree();
+    } else {
+        // If no data was found, initialize with a default empty structure
+        console.log('No saved data found, starting with empty asset manager');
+    }
 });
