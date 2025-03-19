@@ -463,7 +463,8 @@ $(document).ready(function() {
             ['table', ['table']],
             ['insert', ['linkCustom', 'picture', 'video', 'assetManager']],
             ['misc', ['codeview']],
-            ['view', ['fullscreen', 'codeview']]
+            ['view', ['fullscreen', 'codeview']],
+            ['history', ['undo', 'redo']]
         ],
         fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '20', '22', '24', '28', '32', '36', '48', '64', '72'],
         // Remove status bar
@@ -632,7 +633,7 @@ $(document).ready(function() {
         }
     });
 
-    $('#selectAssetBtn').click(() => {
+    $('#selectAssetBtn').off('click').on('click', function() {
         let selectedId;
         
         // Check which view is active and get the selected item
@@ -640,13 +641,11 @@ $(document).ready(function() {
             const selected = $('#assetGrid .asset-item.selected');
             if (selected.length) {
                 selectedId = selected.data('id');
-                console.log('Grid view selected ID:', selectedId);
             }
         } else {
             const selected = $('#assetTree li.selected');
             if (selected.length) {
                 selectedId = selected.data('id');
-                console.log('List view selected ID:', selectedId);
             }
         }
         
@@ -663,7 +662,6 @@ $(document).ready(function() {
         
         // Find the selected item in the current folder
         const currentFolder = assetStore.getCurrentFolder();
-        console.log('Current folder children:', currentFolder.children);
         
         // Convert selectedId to string to ensure consistent comparison
         const item = currentFolder.children.find(
@@ -672,7 +670,6 @@ $(document).ready(function() {
         
         if (!item) {
             console.error('Item not found for ID:', selectedId);
-            // Don't show alert here since the item may have been processed already
             return;
         }
         
@@ -689,31 +686,23 @@ $(document).ready(function() {
             $('.note-link-text').val($('.note-link-text').val() || item.name);
             $('.note-link-url').val(item.data);
             $('.note-link-btn').removeClass('disabled');
-            console.log('Link dialog updated');
         } else {
-            // Direct insert
+            // Direct insert - HANDLE ONLY ONE INSERT TYPE
             if (item.mimeType && item.mimeType.startsWith('image/')) {
                 // Insert image directly into the editor
-                console.log('Inserting image:', item.name, 'with data URL length:', item.data.length);
-                
-                // Create an image element and insert it
                 const image = $('<img>')
                     .attr('src', item.data)
                     .attr('alt', item.name)
                     .css('max-width', '100%');
                 
                 $('#summernote').summernote('insertNode', image[0]);
-                
-                console.log('Image inserted');
             } else {
                 // Insert as a link
-                console.log('Inserting link:', item.name);
                 $('#summernote').summernote('createLink', {
                     text: item.name,
                     url: item.data,
                     isNewWindow: true
                 });
-                console.log('Link inserted');
             }
         }
         
@@ -743,12 +732,16 @@ $(document).ready(function() {
     });
 
     // Initialize on modal show
-    $('#assetManagerModal').on('show.bs.modal', () => {
+    $('#assetManagerModal').on('show.bs.modal', function() {
         // Default to grid view
         $('#gridViewBtn').addClass('active');
         $('#listViewBtn').removeClass('active');
         $('#assetGrid').show();
         $('#assetTree').hide();
+        
+        // Clear any previously selected items
+        $('#assetGrid .asset-item').removeClass('selected');
+        $('#assetTree li').removeClass('selected');
         
         assetStore.renderTree();
     }).on('hidden.bs.modal', () => {
