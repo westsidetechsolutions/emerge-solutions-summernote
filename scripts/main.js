@@ -438,11 +438,67 @@ $(document).ready(function() {
         return button.render();
     };
 
+    // First, create a custom CodeViewButton that will replace the built-in codeview button
+    var CodeViewButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // Create a custom button that replaces the standard codeview button
+        var button = ui.button({
+            contents: '<i class="fas fa-code"/>',
+            tooltip: 'View/Edit Code',
+            click: function () {
+                // When clicked, show our custom modal instead of toggling codeview
+                showCodeViewModal();
+            }
+        });
+      
+        return button.render();
+    };
+
+    // Function to show the code view modal
+    function showCodeViewModal() {
+        // Get the current HTML content from the editor
+        var htmlContent = $('#summernote').summernote('code');
+        
+        // Set the content to the code editor in the modal
+        $('#codeViewTextarea').val(htmlContent);
+        
+        // Show the modal first
+        $('#codeViewModal').modal('show');
+        
+        // Initialize or refresh CodeMirror after the modal is visible
+        $('#codeViewModal').on('shown.bs.modal', function() {
+            if (window.codeViewCodeMirror) {
+                window.codeViewCodeMirror.setValue(htmlContent);
+                window.codeViewCodeMirror.refresh();
+            } else {
+                window.codeViewCodeMirror = CodeMirror.fromTextArea(
+                    document.getElementById('codeViewTextarea'), 
+                    {
+                        mode: 'htmlmixed',
+                        theme: 'default',
+                        lineNumbers: true,
+                        lineWrapping: true,
+                        matchBrackets: true,
+                        autoCloseTags: true,
+                        autoCloseBrackets: true,
+                        styleActiveLine: true
+                    }
+                );
+            }
+            // Force a refresh after initialization
+            setTimeout(function() {
+                window.codeViewCodeMirror.refresh();
+            }, 10);
+        });
+    }
+
     // Initialize Summernote
     $('#summernote').summernote({
         buttons: {
             assetManager: AssetManagerButton,
-            linkCustom: LinkButton
+            linkCustom: LinkButton,
+            codeViewCustom: CodeViewButton
         },
         height: 400,
         minHeight: null,
@@ -462,8 +518,8 @@ $(document).ready(function() {
             ['height', ['height']],
             ['table', ['table']],
             ['insert', ['linkCustom', 'picture', 'video', 'assetManager']],
-            ['misc', ['codeview']],
-            ['view', ['fullscreen', 'codeview']],
+            ['misc', ['codeViewCustom']],
+            ['view', ['fullscreen']],
             ['history', ['undo', 'redo']]
         ],
         fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '20', '22', '24', '28', '32', '36', '48', '64', '72'],
@@ -1111,5 +1167,48 @@ $(document).ready(function() {
         if (confirm('Are you sure you want to clear ALL assets and folders? This cannot be undone.')) {
             assetStore.clearAll();
         }
+    });
+
+    // Add the code view modal HTML to the page
+    const codeViewModal = `
+    <div class="modal fade" id="codeViewModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">HTML Code View</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="codeViewTextarea" style="width: 100%; height: 400px;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="applyCodeBtn">Apply Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    // Append the modal to the body
+    $('body').append(codeViewModal);
+
+    // Handle applying code changes when the Apply button is clicked
+    $('#applyCodeBtn').click(function() {
+        // Get the updated code from CodeMirror or the textarea
+        let updatedCode;
+        if (window.codeViewCodeMirror) {
+            updatedCode = window.codeViewCodeMirror.getValue();
+        } else {
+            updatedCode = $('#codeViewTextarea').val();
+        }
+        
+        // Update the editor content with the new code
+        $('#summernote').summernote('code', updatedCode);
+        
+        // Close the modal
+        $('#codeViewModal').modal('hide');
     });
 });
