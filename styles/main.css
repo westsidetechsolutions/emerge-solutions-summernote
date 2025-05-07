@@ -175,10 +175,19 @@
 /* Toolbar group separators */
 .note-btn-group:not(:last-child):after {
     content: '';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
     border-right: 1px solid #e8e8e8;
-    margin: 0 10px;
-    display: inline-block;
     height: 20px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.note-btn-group {
+    position: relative;
+    display: inline-flex;
     vertical-align: middle;
 }
 
@@ -298,8 +307,35 @@
 }
 
 /* Font dropdown styling */
+.note-fontname {
+    width: 150px !important; /* Fixed width for the button container */
+}
+
+.note-fontname .note-btn {
+    width: 100% !important; /* Make button fill container */
+    text-align: left !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    position: relative !important;
+    padding-right: 25px !important; /* Make room for the dropdown arrow */
+}
+
+.note-fontname .note-btn::after {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin-left: 0 !important;
+}
+
+.note-fontname .note-btn-group {
+    width: 150px !important;
+}
+
 .note-fontname .dropdown-menu {
-    min-width: 200px;
+    min-width: 150px !important;
+    width: 150px !important;
     max-height: 300px;
     overflow-y: auto;
 }
@@ -310,6 +346,9 @@
     display: block;
     text-decoration: none;
     color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Each font in the dropdown will be styled with its own font */
@@ -437,4 +476,110 @@
 .modal-header {
     display: flex;
     align-items: center;
+}
+
+/* Style dropdown styling */
+.note-style {
+    width: 150px !important; /* Fixed width for the button container */
+}
+
+.note-style .note-btn {
+    width: 100% !important; /* Make button fill container */
+    text-align: left !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    position: relative !important;
+    padding-right: 25px !important; /* Make room for the dropdown arrow */
+}
+
+/* Remove the magic icon */
+.note-style .note-btn .note-icon-magic {
+    display: none !important;
+}
+
+.note-style .note-btn::after {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin-left: 0 !important;
+}
+
+.note-style .note-btn-group {
+    width: 150px !important;
+}
+
+.note-style .dropdown-menu {
+    min-width: 150px !important;
+    width: 150px !important;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.note-style .dropdown-menu a {
+    padding: 8px 12px;
+    font-size: 14px;
+    display: block;
+    text-decoration: none;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Style preview in dropdown */
+.note-style .dropdown-menu a[data-value="p"] {
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.note-style .dropdown-menu a[data-value="h1"] {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h2"] {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h3"] {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h4"] {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h5"] {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h6"] {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="blockquote"] {
+    font-style: italic;
+    border-left: 3px solid #ccc;
+    padding-left: 10px;
+}
+
+.note-style .dropdown-menu a[data-value="pre"] {
+    font-family: monospace;
+    background-color: #f8f9fa;
+}
+
+/* Ensure the style preview is visible */
+.note-style .dropdown-menu a:hover {
+    background-color: #f8f9fa;
+}
+
+.note-style .dropdown-menu a.checked {
+    background-color: #e6f2ff;
 }

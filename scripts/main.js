@@ -493,12 +493,71 @@ $(document).ready(function() {
         });
     }
 
+    // Custom Alignment Dropdown Button
+    var CustomAlignDropdown = function (context) {
+        var ui = $.summernote.ui;
+        var alignments = [
+            { cmd: 'justifyLeft', icon: 'fa-align-left', label: 'Left Align' },
+            { cmd: 'justifyCenter', icon: 'fa-align-center', label: 'Center Align' },
+            { cmd: 'justifyRight', icon: 'fa-align-right', label: 'Right Align' },
+            { cmd: 'justifyFull', icon: 'fa-align-justify', label: 'Justify Align' },
+            { divider: true },
+            { cmd: 'outdent', icon: 'fa-outdent', label: 'Outdent' },
+            { cmd: 'indent', icon: 'fa-indent', label: 'Indent' }
+        ];
+
+        // Helper to get current alignment
+        function getCurrentAlign() {
+            var $focus = $(window.getSelection().focusNode).closest('p, h1, h2, h3, h4, h5, h6, div, blockquote, pre');
+            if ($focus.length) {
+                var align = $focus.css('text-align');
+                switch (align) {
+                    case 'center': return 'justifyCenter';
+                    case 'right': return 'justifyRight';
+                    case 'justify': return 'justifyFull';
+                    case 'left': return 'justifyLeft';
+                    default: return 'justifyLeft';
+                }
+            }
+            return 'justifyLeft';
+        }
+
+        // Helper to get label/icon for current alignment
+        function getAlignMeta(cmd) {
+            return alignments.find(a => a.cmd === cmd) || alignments[0];
+        }
+
+        // Create dropdown menu
+        var $dropdown = $('<div class="dropdown-menu custom-align-dropdown"></div>');
+        alignments.forEach(function(a) {
+            if (a.divider) {
+                $dropdown.append('<div class="dropdown-divider"></div>');
+            } else {
+                $dropdown.append('<a class="dropdown-item align-option" href="#" data-cmd="' + a.cmd + '"><i class="fas ' + a.icon + '"></i> ' + a.label + '</a>');
+            }
+        });
+
+        // Create button with Bootstrap dropdown
+        var currentCmd = getCurrentAlign();
+        var meta = getAlignMeta(currentCmd);
+        var $button = $('<button type="button" class="note-btn btn btn-light dropdown-toggle align-dropdown-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Alignment">'
+            + '<span class="align-btn-label"><i class="fas ' + meta.icon + '"></i> <span>' + meta.label + '</span></span>'
+            + '</button>');
+
+        var $group = $('<div class="note-btn-group btn-group note-align-dropdown-group"></div>');
+        $group.append($button).append($dropdown);
+
+        // Return as HTML string for Summernote
+        return $group[0].outerHTML;
+    };
+
     // Initialize Summernote
     $('#summernote').summernote({
         buttons: {
             assetManager: AssetManagerButton,
             linkCustom: LinkButton,
-            codeViewCustom: CodeViewButton
+            codeViewCustom: CodeViewButton,
+            customAlignDropdown: CustomAlignDropdown
         },
         height: 400,
         minHeight: null,
@@ -514,7 +573,7 @@ $(document).ready(function() {
             ['fontname', ['fontname']],
             ['fontsize', ['fontsize']],
             ['color', ['color']],
-            ['para', ['ul', 'ol', 'paragraph']],
+            ['para', ['customAlignDropdown']],
             ['height', ['height']],
             ['table', ['table']],
             ['insert', ['linkCustom', 'picture', 'video', 'assetManager']],
@@ -571,11 +630,73 @@ $(document).ready(function() {
                     makeTablesResizable();
                     makeVideosResizable();
                 }, 100);
+
+                // Initialize style dropdown with default value
+                updateStyleDropdown('p');
+
+                // Add event listener for style changes
+                $('.note-style .dropdown-menu a').on('click', function() {
+                    const tagName = $(this).data('value');
+                    setTimeout(function() {
+                        updateStyleDropdown(tagName);
+                    }, 0);
+                });
+
+                // Event delegation for align dropdown
+                $(document).off('click', '.note-align-dropdown-group .align-option').on('click', '.note-align-dropdown-group .align-option', function(e) {
+                    e.preventDefault();
+                    var cmd = $(this).data('cmd');
+                    $('#summernote').summernote('focus');
+                    if (cmd === 'outdent' || cmd === 'indent') {
+                        document.execCommand(cmd);
+                    } else {
+                        document.execCommand(cmd, false, null);
+                    }
+                    // Update button label/icon
+                    var alignments = [
+                        { cmd: 'justifyLeft', icon: 'fa-align-left', label: 'Left Align' },
+                        { cmd: 'justifyCenter', icon: 'fa-align-center', label: 'Center Align' },
+                        { cmd: 'justifyRight', icon: 'fa-align-right', label: 'Right Align' },
+                        { cmd: 'justifyFull', icon: 'fa-align-justify', label: 'Justify Align' }
+                    ];
+                    var meta = alignments.find(a => a.cmd === cmd) || alignments[0];
+                    var $button = $(this).closest('.note-align-dropdown-group').find('.align-dropdown-btn');
+                    $button.find('.align-btn-label').html('<i class=\"fas ' + meta.icon + '\"></i> <span>' + meta.label + '</span>');
+                    // Close the dropdown
+                    $button.dropdown('toggle');
+                });
+                // Update button on selection change
+                $(document).off('selectionchange.alignDropdown').on('selectionchange.alignDropdown', function() {
+                    var $button = $('.note-align-dropdown-group .align-dropdown-btn');
+                    var $focus = $(window.getSelection().focusNode).closest('p, h1, h2, h3, h4, h5, h6, div, blockquote, pre');
+                    var align = $focus.length ? $focus.css('text-align') : 'left';
+                    var alignments = [
+                        { cmd: 'justifyLeft', icon: 'fa-align-left', label: 'Left Align' },
+                        { cmd: 'justifyCenter', icon: 'fa-align-center', label: 'Center Align' },
+                        { cmd: 'justifyRight', icon: 'fa-align-right', label: 'Right Align' },
+                        { cmd: 'justifyFull', icon: 'fa-align-justify', label: 'Justify Align' }
+                    ];
+                    var cmd = 'justifyLeft';
+                    switch (align) {
+                        case 'center': cmd = 'justifyCenter'; break;
+                        case 'right': cmd = 'justifyRight'; break;
+                        case 'justify': cmd = 'justifyFull'; break;
+                        case 'left': cmd = 'justifyLeft'; break;
+                    }
+                    var meta = alignments.find(a => a.cmd === cmd) || alignments[0];
+                    $button.find('.align-btn-label').html('<i class=\"fas ' + meta.icon + '\"></i> <span>' + meta.label + '</span>');
+                });
             },
             onChange: function(contents, $editable) {
                 // When content changes, check for new elements and make them resizable
                 makeTablesResizable();
                 makeVideosResizable();
+            },
+            onKeyup: function(e) {
+                updateStyleDropdownFromSelection();
+            },
+            onMouseup: function(e) {
+                updateStyleDropdownFromSelection();
             }
         }
     });
@@ -1211,4 +1332,57 @@ $(document).ready(function() {
         // Close the modal
         $('#codeViewModal').modal('hide');
     });
+
+    // Function to update style dropdown based on selection
+    function updateStyleDropdownFromSelection() {
+        const $editable = $('.note-editable');
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const node = range.commonAncestorContainer;
+            
+            // Get the closest block element
+            let blockElement = $(node).closest('p, h1, h2, h3, h4, h5, h6, blockquote, pre');
+            
+            // If no block element found, try to get the parent element
+            if (!blockElement.length) {
+                blockElement = $(node).parent();
+            }
+            
+            // Get the tag name and update the dropdown
+            const tagName = blockElement.prop('tagName').toLowerCase();
+            updateStyleDropdown(tagName);
+        }
+    }
+
+    // Function to update style dropdown text
+    function updateStyleDropdown(tagName) {
+        const $styleBtn = $('.note-style .note-btn');
+        const $styleText = $styleBtn.find('.note-current-style');
+        
+        if (!$styleText.length) {
+            $styleBtn.prepend('<span class="note-current-style"></span>');
+        }
+        
+        const styleText = getStyleText(tagName);
+        $styleBtn.find('.note-current-style').text(styleText);
+    }
+
+    // Function to get display text for style
+    function getStyleText(tagName) {
+        const styleMap = {
+            'p': 'Normal',
+            'h1': 'Heading 1',
+            'h2': 'Heading 2',
+            'h3': 'Heading 3',
+            'h4': 'Heading 4',
+            'h5': 'Heading 5',
+            'h6': 'Heading 6',
+            'blockquote': 'Quote',
+            'pre': 'Code'
+        };
+        
+        return styleMap[tagName] || 'Normal';
+    }
 });
