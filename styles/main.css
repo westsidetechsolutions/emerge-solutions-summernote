@@ -1,0 +1,649 @@
+#assetManagerModal .modal-content {
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.asset-manager-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.folder-toolbar {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.folder-structure {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.file-tree {
+    list-style: none;
+    padding-left: 0;
+}
+
+.file-tree li {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.file-tree li:hover {
+    background-color: #f5f5f5;
+}
+
+.file-tree li.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+.file-tree .folder {
+    font-weight: bold;
+}
+
+.file-tree i {
+    margin-right: 5px;
+}
+
+/* Asset Grid View */
+.asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    padding: 15px;
+}
+
+.asset-item {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    height: 120px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.asset-item:hover {
+    border-color: #aaa;
+    background-color: #f5f5f5;
+}
+
+.asset-item.selected {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.asset-thumbnail {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.asset-thumbnail img {
+    max-width: 100%;
+    max-height: 70px;
+    object-fit: contain;
+}
+
+.asset-thumbnail i {
+    font-size: 2rem;
+    color: #6c757d;
+}
+
+.asset-name {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* View toggle buttons */
+.view-toggle {
+    margin-bottom: 10px;
+}
+
+.view-toggle .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.editor-container {
+    margin: 20px;
+}
+
+/* Custom button styling */
+.note-btn-asset-manager {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 5px 10px;
+}
+
+.note-btn-asset-manager:hover {
+    background-color: #e9ecef;
+}
+
+.note-btn-asset-manager i {
+    color: #007bff;
+}
+
+.file-upload {
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+/* Editor Styling */
+.note-editor.note-frame {
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    box-shadow: none;
+}
+
+.note-toolbar {
+    background: #fff;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 8px 10px;
+}
+
+.note-btn {
+    border: none;
+    background: transparent;
+    padding: 5px 10px;
+    font-size: 14px;
+    color: #333;
+    border-radius: 4px;
+    margin: 0 2px;
+}
+
+.note-btn:hover {
+    background-color: #f3f3f3;
+}
+
+.note-btn.active {
+    background-color: #e8e8e8;
+}
+
+/* Toolbar group separators */
+.note-btn-group:not(:last-child):after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-right: 1px solid #e8e8e8;
+    height: 20px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.note-btn-group {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+}
+
+/* Status bar removal */
+.note-statusbar {
+    display: none;
+}
+
+/* Editor content area */
+.note-editing-area {
+    background: #fff;
+    padding: 20px;
+}
+
+.note-editable {
+    background: #fff;
+    color: #333;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* Dropdown menus */
+.note-dropdown-menu {
+    border: 1px solid #e8e8e8;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+
+/* Code View Syntax Highlighting */
+.note-codable {
+    background-color: #f8f9fa !important;
+    color: #333 !important;
+    font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
+}
+
+/* HTML Tags */
+.note-editing-area .note-codable {
+    color: #800000 !important; /* dark red/burgundy for tags */
+}
+
+/* Style the preview when switching back from code view */
+.note-editable pre {
+    color: #800000;
+}
+
+/* HTML Attributes */
+.note-editing-area .note-codable [data-attr-name] {
+    color: #ff0000 !important; /* bright red for attributes */
+}
+
+/* Attribute Values */
+.note-editing-area .note-codable [data-attr-value] {
+    color: #0000ff !important; /* blue for attribute values */
+}
+
+/* Resize handle for the editor */
+.note-resize-handle {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 10px;
+  background: #e0e0e0;
+  cursor: ns-resize;
+  border-top: 1px solid #ccc;
+}
+
+.note-resize-handle:hover {
+  background: #c0c0c0;
+}
+
+.note-resize-handle:before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 4px;
+  background-color: #999;
+  border-radius: 2px;
+}
+
+/* Undo/Redo buttons styling */
+.note-btn-group.note-history .note-btn {
+    position: relative;
+}
+
+.note-btn-group.note-history .note-btn.note-btn-undo:after {
+    content: "Undo";
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #777;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.note-btn-group.note-history .note-btn.note-btn-redo:after {
+    content: "Redo";
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #777;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.note-btn-group.note-history .note-btn:hover:after {
+    opacity: 1;
+}
+
+/* Font dropdown styling */
+.note-fontname {
+    width: 150px !important; /* Fixed width for the button container */
+}
+
+.note-fontname .note-btn {
+    width: 100% !important; /* Make button fill container */
+    text-align: left !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    position: relative !important;
+    padding-right: 25px !important; /* Make room for the dropdown arrow */
+}
+
+.note-fontname .note-btn::after {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin-left: 0 !important;
+}
+
+.note-fontname .note-btn-group {
+    width: 150px !important;
+}
+
+.note-fontname .dropdown-menu {
+    min-width: 150px !important;
+    width: 150px !important;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.note-fontname .dropdown-menu a {
+    padding: 8px 12px;
+    font-size: 14px;
+    display: block;
+    text-decoration: none;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Each font in the dropdown will be styled with its own font */
+.note-fontname .dropdown-menu a {
+    font-size: 16px;
+    line-height: 1.4;
+}
+
+/* Specific styling for our custom fonts */
+.note-fontname .dropdown-menu a[data-value="Liberation Sans"] {
+    font-family: 'Liberation Sans', sans-serif;
+}
+
+.note-fontname .dropdown-menu a[data-value="Proximanova Regular"] {
+    font-family: 'Proximanova Regular', sans-serif;
+}
+
+/* Ensure the font preview is visible */
+.note-fontname .dropdown-menu a:hover {
+    background-color: #f8f9fa;
+}
+
+.note-fontname .dropdown-menu a.checked {
+    background-color: #e6f2ff;
+}
+
+.column-resize-handle {
+    background-color: transparent;
+    transition: background-color 0.2s;
+}
+
+.column-resize-handle:hover,
+.column-resize-handle:active {
+    background-color: #0d6efd;
+}
+
+/* Make sure tables have proper styling for resizing */
+.note-editable table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.note-editable table td,
+.note-editable table th {
+    overflow: hidden;
+}
+
+.video-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.video-resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #4285f4;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+.video-resize-handle:hover {
+    background: #2a75f3;
+}
+
+.handle-nw { top: -5px; left: -5px; cursor: nw-resize; }
+.handle-ne { top: -5px; right: -5px; cursor: ne-resize; }
+.handle-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.handle-se { bottom: -5px; right: -5px; cursor: se-resize; }
+
+/* Styling for the delete buttons */
+.delete-btn {
+    padding: 2px 5px;
+    margin-left: 8px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+}
+
+/* List view specific */
+#assetTree li {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+}
+
+.item-container {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Grid view specific */
+.asset-item {
+    position: relative;
+}
+
+.grid-delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.7em;
+    display: none;
+}
+
+.asset-item:hover .grid-delete-btn {
+    display: block;
+}
+
+/* Style for Clear All button */
+#clearAllAssetsBtn {
+    margin-left: auto;
+    margin-right: 10px;
+}
+
+/* Ensure modal header has proper alignment */
+.modal-header {
+    display: flex;
+    align-items: center;
+}
+
+/* Style dropdown styling */
+.note-style {
+    width: 150px !important; /* Fixed width for the button container */
+}
+
+.note-style .note-btn {
+    width: 100% !important; /* Make button fill container */
+    text-align: left !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    position: relative !important;
+    padding-right: 25px !important; /* Make room for the dropdown arrow */
+}
+
+/* Remove the magic icon */
+.note-style .note-btn .note-icon-magic {
+    display: none !important;
+}
+
+.note-style .note-btn::after {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin-left: 0 !important;
+}
+
+.note-style .note-btn-group {
+    width: 150px !important;
+}
+
+.note-style .dropdown-menu {
+    min-width: 150px !important;
+    width: 150px !important;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.note-style .dropdown-menu a {
+    padding: 8px 12px;
+    font-size: 14px;
+    display: block;
+    text-decoration: none;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Style preview in dropdown */
+.note-style .dropdown-menu a[data-value="p"] {
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.note-style .dropdown-menu a[data-value="h1"] {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h2"] {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h3"] {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h4"] {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h5"] {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="h6"] {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.note-style .dropdown-menu a[data-value="blockquote"] {
+    font-style: italic;
+    border-left: 3px solid #ccc;
+    padding-left: 10px;
+}
+
+.note-style .dropdown-menu a[data-value="pre"] {
+    font-family: monospace;
+    background-color: #f8f9fa;
+}
+
+/* Ensure the style preview is visible */
+.note-style .dropdown-menu a:hover {
+    background-color: #f8f9fa;
+}
+
+.note-style .dropdown-menu a.checked {
+    background-color: #e6f2ff;
+}
+
+/* Code View Modal Resize Handle */
+.modal-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: se-resize;
+    background: linear-gradient(135deg, transparent 50%, #ccc 50%);
+}
+
+.modal-resize-handle:hover {
+    background: linear-gradient(135deg, transparent 50%, #999 50%);
+}
+
+#codeViewModal .modal-dialog {
+    transition: none;
+}
+
+#codeViewModal .modal-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#codeViewModal .modal-body {
+    flex: 1;
+    overflow: hidden;
+    padding: 0;
+}
+
+#codeViewModal .CodeMirror {
+    height: 100%;
+}
+
+/* Make the disabled state look clearly disabled (gray, not blue) */
+.note-link-btn:disabled,
+.note-link-btn.disabled {
+  background-color: #e0e0e0 !important;
+  color: #aaa !important;
+  border-color: #e0e0e0 !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+/* Make the enabled state look like a primary button */
+.note-link-btn:not(:disabled):not(.disabled) {
+  background-color: #007bff !important;
+  color: #fff !important;
+  border-color: #007bff !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* Make the hover/focus/active state more visible (darker blue) */
+.note-link-btn:not(:disabled):not(.disabled):hover,
+.note-link-btn:not(:disabled):not(.disabled):focus,
+.note-link-btn:not(:disabled):not(.disabled):active {
+  background-color: #0056b3 !important;
+  color: #fff !important;
+  border-color: #0056b3 !important;
+  opacity: 1 !important;
+}

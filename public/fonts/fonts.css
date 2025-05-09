@@ -1,0 +1,9 @@
+@font-face {
+  font-family: 'Liberation Sans';
+  src: url('./LiberationSans-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Proximanova Regular';
+  src: url('./proximanova-regular-webfont.ttf') format('truetype');
+} 
