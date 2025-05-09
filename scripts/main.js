@@ -623,6 +623,19 @@ $(document).ready(function() {
             styleActiveLine: true
         },
         callbacks: {
+            onKeydown: function(e) {
+                // Check if delete or backspace key is pressed
+                if (e.keyCode === 46 || e.keyCode === 8) {
+                    const $target = $(window.getSelection().focusNode);
+                    const $image = $target.closest('img');
+                    
+                    // If an image is selected, remove it
+                    if ($image.length) {
+                        e.preventDefault();
+                        $image.remove();
+                    }
+                }
+            },
             onInit: function() {
                 console.log('Summernote initialized');
                 // Add resize functionality after Summernote is initialized
