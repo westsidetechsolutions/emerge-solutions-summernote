@@ -1308,6 +1308,7 @@ $(document).ready(function() {
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="applyCodeBtn">Apply Changes</button>
                 </div>
+                <div class="modal-resize-handle"></div>
             </div>
         </div>
     </div>
@@ -1315,6 +1316,63 @@ $(document).ready(function() {
 
     // Append the modal to the body
     $('body').append(codeViewModal);
+
+    // Add resize functionality to the code view modal
+    $('#codeViewModal').on('shown.bs.modal', function() {
+        const $modal = $(this);
+        const $modalDialog = $modal.find('.modal-dialog');
+        const $modalContent = $modal.find('.modal-content');
+        const $resizeHandle = $modal.find('.modal-resize-handle');
+        
+        // Set initial size
+        $modalDialog.css({
+            'width': '80%',
+            'max-width': 'none',
+            'height': '80vh',
+            'margin': '10vh auto'
+        });
+        
+        // Add resize handle event listeners
+        $resizeHandle.on('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startWidth = $modalDialog.width();
+            const startHeight = $modalDialog.height();
+            
+            // Add overlay to capture mouse events
+            const $overlay = $('<div class="resize-overlay"></div>').css({
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                cursor: 'se-resize',
+                zIndex: 9999
+            }).appendTo('body');
+            
+            $overlay.on('mousemove', function(e) {
+                const newWidth = Math.max(400, startWidth + (e.clientX - startX));
+                const newHeight = Math.max(300, startHeight + (e.clientY - startY));
+                
+                $modalDialog.css({
+                    width: newWidth + 'px',
+                    height: newHeight + 'px'
+                });
+                
+                // Update CodeMirror size
+                if (window.codeViewCodeMirror) {
+                    window.codeViewCodeMirror.refresh();
+                }
+            });
+            
+            $overlay.on('mouseup', function() {
+                $overlay.remove();
+            });
+        });
+    });
 
     // Handle applying code changes when the Apply button is clicked
     $('#applyCodeBtn').click(function() {

@@ -583,3 +583,67 @@
 .note-style .dropdown-menu a.checked {
     background-color: #e6f2ff;
 }
+
+/* Code View Modal Resize Handle */
+.modal-resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: se-resize;
+    background: linear-gradient(135deg, transparent 50%, #ccc 50%);
+}
+
+.modal-resize-handle:hover {
+    background: linear-gradient(135deg, transparent 50%, #999 50%);
+}
+
+#codeViewModal .modal-dialog {
+    transition: none;
+}
+
+#codeViewModal .modal-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#codeViewModal .modal-body {
+    flex: 1;
+    overflow: hidden;
+    padding: 0;
+}
+
+#codeViewModal .CodeMirror {
+    height: 100%;
+}
+
+/* Make the disabled state look clearly disabled (gray, not blue) */
+.note-link-btn:disabled,
+.note-link-btn.disabled {
+  background-color: #e0e0e0 !important;
+  color: #aaa !important;
+  border-color: #e0e0e0 !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+/* Make the enabled state look like a primary button */
+.note-link-btn:not(:disabled):not(.disabled) {
+  background-color: #007bff !important;
+  color: #fff !important;
+  border-color: #007bff !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* Make the hover/focus/active state more visible (darker blue) */
+.note-link-btn:not(:disabled):not(.disabled):hover,
+.note-link-btn:not(:disabled):not(.disabled):focus,
+.note-link-btn:not(:disabled):not(.disabled):active {
+  background-color: #0056b3 !important;
+  color: #fff !important;
+  border-color: #0056b3 !important;
+  opacity: 1 !important;
+}
