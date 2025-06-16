@@ -624,18 +624,14 @@ $(document).ready(function() {
             styleActiveLine: true
         },
         callbacks: {
-            onKeydown: function(e) {
-                // Check if delete or backspace key is pressed
-                if (e.keyCode === 46 || e.keyCode === 8) {
-                    const $target = $(window.getSelection().focusNode);
-                    const $image = $target.closest('img');
-                    
-                    // If an image is selected, remove it
-                    if ($image.length) {
+            callbacks: {
+                onKeydown: function(e) {
+                    if ((e.keyCode === 46 || e.keyCode === 8) && selectedImage) {
                         e.preventDefault();
-                        $image.remove();
+                        $(selectedImage).remove();
+                        selectedImage = null;
                     }
-                }
+                },
             },
             onInit: function() {
                 console.log('Summernote initialized');
@@ -739,6 +735,20 @@ $('#summernote').on('drop', function(e) {
             range.insertNode(draggingImg);
             draggingImg.classList.remove('dragging-image');
         }
+    }
+});
+
+let selectedImage = null;
+
+// When user clicks an image inside the editor
+$('#summernote').on('click', 'img', function(e) {
+    selectedImage = this;
+});
+
+// When user clicks anywhere else in the editor
+$('#summernote').on('click', function(e) {
+    if (!$(e.target).is('img')) {
+        selectedImage = null;
     }
 });
 
