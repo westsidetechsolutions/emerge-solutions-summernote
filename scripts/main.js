@@ -553,6 +553,7 @@ $(document).ready(function() {
 
     // Initialize Summernote
     $('#summernote').summernote({
+        disableDragAndDrop: true,
         buttons: {
             assetManager: AssetManagerButton,
             linkCustom: LinkButton,
