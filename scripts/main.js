@@ -715,6 +715,34 @@ $(document).ready(function() {
         }
     });
 
+    // Fix for image duplication on drag-and-drop inside Summernote
+$('#summernote').on('dragstart', 'img', function(e) {
+    $(this).addClass('dragging-image');
+});
+
+$('#summernote').on('dragend', 'img', function(e) {
+    $(this).removeClass('dragging-image');
+});
+
+$('#summernote').on('drop', function(e) {
+    const dataTransfer = e.originalEvent.dataTransfer;
+
+    // If it's not an actual file being dropped, assume it's internal drag
+    if (dataTransfer && dataTransfer.files.length === 0) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const draggingImg = document.querySelector('.dragging-image');
+        if (draggingImg) {
+            const range = window.getSelection().getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(draggingImg);
+            draggingImg.classList.remove('dragging-image');
+        }
+    }
+});
+
+
     // Load custom fonts CSS
     $('head').append('<link rel="stylesheet" href="/fonts/fonts.css">');
 
