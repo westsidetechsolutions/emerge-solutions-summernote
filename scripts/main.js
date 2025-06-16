@@ -624,18 +624,14 @@ $(document).ready(function() {
             styleActiveLine: true
         },
         callbacks: {
-            onKeydown: function(e) {
-                // Check if delete or backspace key is pressed
-                if (e.keyCode === 46 || e.keyCode === 8) {
-                    const $target = $(window.getSelection().focusNode);
-                    const $image = $target.closest('img');
-                    
-                    // If an image is selected, remove it
-                    if ($image.length) {
+            callbacks: {
+                onKeydown: function(e) {
+                    if ((e.keyCode === 46 || e.keyCode === 8) && selectedImage) {
                         e.preventDefault();
-                        $image.remove();
+                        $(selectedImage).remove();
+                        selectedImage = null;
                     }
-                }
+                },
             },
             onInit: function() {
                 console.log('Summernote initialized');
@@ -714,6 +710,48 @@ $(document).ready(function() {
             }
         }
     });
+
+    // Fix for image duplication on drag-and-drop inside Summernote
+$('#summernote').on('dragstart', 'img', function(e) {
+    $(this).addClass('dragging-image');
+});
+
+$('#summernote').on('dragend', 'img', function(e) {
+    $(this).removeClass('dragging-image');
+});
+
+$('#summernote').on('drop', function(e) {
+    const dataTransfer = e.originalEvent.dataTransfer;
+
+    // If it's not an actual file being dropped, assume it's internal drag
+    if (dataTransfer && dataTransfer.files.length === 0) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const draggingImg = document.querySelector('.dragging-image');
+        if (draggingImg) {
+            const range = window.getSelection().getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(draggingImg);
+            draggingImg.classList.remove('dragging-image');
+        }
+    }
+});
+
+let selectedImage = null;
+
+// When user clicks an image inside the editor
+$('#summernote').on('click', 'img', function(e) {
+    selectedImage = this;
+});
+
+// When user clicks anywhere else in the editor
+$('#summernote').on('click', function(e) {
+    if (!$(e.target).is('img')) {
+        selectedImage = null;
+    }
+});
+
 
     // Load custom fonts CSS
     $('head').append('<link rel="stylesheet" href="/fonts/fonts.css">');
