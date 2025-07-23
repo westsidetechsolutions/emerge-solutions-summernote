@@ -639,7 +639,6 @@ $(document).ready(function() {
                 setTimeout(function() {
                     makeTablesResizable();
                     makeVideosResizable();
-                    makeImagesResizable(); // Call the new function here
                 }, 100);
 
                 // Initialize style dropdown with default value
@@ -702,7 +701,6 @@ $(document).ready(function() {
                 // When content changes, check for new elements and make them resizable
                 makeTablesResizable();
                 makeVideosResizable();
-                makeImagesResizable(); // Call the new function here
             },
             onKeyup: function(e) {
                 updateStyleDropdownFromSelection();
@@ -1224,130 +1222,6 @@ $('#summernote').on('click', function(e) {
                         
                         // Update media dimensions
                         $media.css({
-                            width: newWidth + 'px',
-                            height: newHeight + 'px'
-                        });
-                        
-                        // Update wrapper dimensions
-                        $wrapper.css({
-                            width: newWidth + 'px',
-                            height: newHeight + 'px'
-                        });
-                    });
-                    
-                    $overlay.on('mouseup', function() {
-                        $overlay.remove();
-                    });
-                });
-            });
-        });
-    }
-
-    // Function to make images resizable with handles on all four corners
-    function makeImagesResizable() {
-        const $editor = $('.note-editable');
-        
-        // Find all images in the editor
-        $editor.find('img').each(function() {
-            const $image = $(this);
-            
-            // Skip if already processed
-            if ($image.hasClass('resizable-image-added')) return;
-            
-            // Mark as processed
-            $image.addClass('resizable-image-added');
-            
-            // Create resize handles for all four corners
-            const handles = ['nw', 'ne', 'sw', 'se'];
-            const $container = $('<div class="image-resize-container"></div>').css({
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none'
-            });
-            
-            // Add wrapper to allow absolute positioning
-            if (!$image.parent().hasClass('image-wrapper')) {
-                $image.wrap('<div class="image-wrapper"></div>');
-            }
-            
-            const $wrapper = $image.parent('.image-wrapper');
-            $wrapper.css({
-                position: 'relative',
-                display: 'inline-block',
-                width: $image.width(),
-                height: $image.height()
-            });
-            
-            $wrapper.append($container);
-            
-            // Add resize handles to each corner
-            handles.forEach(handle => {
-                const $handle = $('<div class="image-resize-handle"></div>');
-                $handle.addClass('handle-' + handle).css({
-                    position: 'absolute',
-                    width: '10px',
-                    height: '10px',
-                    background: '#4285f4',
-                    border: '1px solid #fff',
-                    borderRadius: '50%',
-                    pointerEvents: 'auto',
-                    cursor: handle + '-resize',
-                    zIndex: 10
-                });
-                
-                // Position the handle
-                if (handle.includes('n')) $handle.css('top', '-5px');
-                if (handle.includes('s')) $handle.css('bottom', '-5px');
-                if (handle.includes('w')) $handle.css('left', '-5px');
-                if (handle.includes('e')) $handle.css('right', '-5px');
-                
-                $container.append($handle);
-                
-                // Add event listener for resize
-                $handle.on('mousedown', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const startX = e.clientX;
-                    const startY = e.clientY;
-                    const startWidth = $image.width();
-                    const startHeight = $image.height();
-                    const ratio = startWidth / startHeight;
-                    const isNorth = handle.includes('n');
-                    const isSouth = handle.includes('s');
-                    const isWest = handle.includes('w');
-                    const isEast = handle.includes('e');
-                    
-                    // Add overlay to capture mouse events
-                    const $overlay = $('<div class="resize-overlay"></div>').css({
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        cursor: handle + '-resize',
-                        zIndex: 9999
-                    }).appendTo('body');
-                    
-                    $overlay.on('mousemove', function(e) {
-                        let newWidth = startWidth;
-                        let newHeight = startHeight;
-                        
-                        if (isEast || isWest) {
-                            const diffX = isEast ? (e.clientX - startX) : (startX - e.clientX);
-                            newWidth = Math.max(50, startWidth + diffX);
-                            newHeight = newWidth / ratio;
-                        } else if (isNorth || isSouth) {
-                            const diffY = isSouth ? (e.clientY - startY) : (startY - e.clientY);
-                            newHeight = Math.max(50, startHeight + diffY);
-                            newWidth = newHeight * ratio;
-                        }
-                        
-                        // Update image dimensions
-                        $image.css({
                             width: newWidth + 'px',
                             height: newHeight + 'px'
                         });

@@ -421,32 +421,6 @@
 .handle-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
 .handle-se { bottom: -5px; right: -5px; cursor: se-resize; }
 
-/* Image resize handle styles */
-.image-wrapper {
-    position: relative;
-    display: inline-block;
-}
-
-.image-resize-handle {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    background: #4285f4;
-    border: 1px solid #fff;
-    border-radius: 50%;
-    z-index: 10;
-}
-
-.image-resize-handle:hover {
-    background: #2a75f3;
-}
-
-/* Image handle positioning - same as video handles */
-.image-wrapper .handle-nw { top: -5px; left: -5px; cursor: nw-resize; }
-.image-wrapper .handle-ne { top: -5px; right: -5px; cursor: ne-resize; }
-.image-wrapper .handle-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
-.image-wrapper .handle-se { bottom: -5px; right: -5px; cursor: se-resize; }
-
 /* Styling for the delete buttons */
 .delete-btn {
     padding: 2px 5px;
