@@ -493,6 +493,71 @@ $(document).ready(function() {
         });
     }
 
+    // Function to show the edit image modal
+    function showEditImageModal() {
+        // Get the currently selected image from Summernote
+        var target = $('#summernote').summernote('restoreTarget');
+        if (!target || target.tagName !== 'IMG') {
+            alert('Please select an image first');
+            return;
+        }
+        
+        // Convert to jQuery object for easier manipulation
+        var $target = $(target);
+        
+        // Store the target image's src and position for later use
+        // This way we can find it even after the DOM is refreshed
+        window.currentEditingImage = {
+            src: target.src,
+            title: $target.attr('title') || '',
+            width: $target.width(),
+            height: $target.height()
+        };
+        
+        console.log('Stored image data:', window.currentEditingImage);
+        console.log('Image src:', target.src);
+        console.log('Image natural dimensions:', target.naturalWidth, 'x', target.naturalHeight);
+        
+        // Get current image properties
+        var currentTitle = $target.attr('title') || '';
+        var currentWidth = $target.width();
+        var currentHeight = $target.height();
+        var originalWidth = target.naturalWidth;
+        var originalHeight = target.naturalHeight;
+        
+        // Calculate aspect ratio
+        var aspectRatio = originalWidth / originalHeight;
+        
+        // Populate the modal fields
+        $('#editImageTitle').val(currentTitle);
+        $('#editImageWidth').val(currentWidth);
+        $('#editImageHeight').val(currentHeight);
+        $('#editImageKeepAspectRatio').prop('checked', true);
+        
+        // Store aspect ratio for calculations
+        $('#editImageModal').data('aspectRatio', aspectRatio);
+        $('#editImageModal').data('originalWidth', originalWidth);
+        $('#editImageModal').data('originalHeight', originalHeight);
+        
+        // Show the modal
+        $('#editImageModal').modal('show');
+    }
+
+    // Edit Image Button for Popover
+    var EditImageButton = function (context) {
+        var ui = $.summernote.ui;
+        
+        var button = ui.button({
+            contents: '<i class="fas fa-edit"></i> Edit',
+            tooltip: 'Edit Image',
+            click: function () {
+                showEditImageModal();
+            }
+        });
+        
+        return button.render();
+    };
+
     // Custom Alignment Dropdown Button
     var CustomAlignDropdown = function (context) {
         var ui = $.summernote.ui;
@@ -558,7 +623,8 @@ $(document).ready(function() {
             assetManager: AssetManagerButton,
             linkCustom: LinkButton,
             codeViewCustom: CodeViewButton,
-            customAlignDropdown: CustomAlignDropdown
+            customAlignDropdown: CustomAlignDropdown,
+            editImage: EditImageButton
         },
         height: 400,
         minHeight: null,
@@ -594,6 +660,7 @@ $(document).ready(function() {
             image: [
                 ['imagesize', ['imageSize100', 'imageSize50']],
                 ['float', ['floatLeft', 'floatRight', 'floatNone']],
+                ['edit', ['editImage']],
                 ['remove', ['removeMedia']]
             ],
             link: [
@@ -1366,8 +1433,65 @@ $('#summernote').on('click', function(e) {
     </div>
     `;
 
-    // Append the modal to the body
+    // Add the edit image modal HTML to the page
+    const editImageModal = `
+    <div class="modal fade" id="editImageModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Image</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="editImageForm">
+                        <div class="form-group">
+                            <label for="editImageTitle">Image Title (alt text)</label>
+                            <input type="text" class="form-control" id="editImageTitle" placeholder="Enter image title...">
+                        </div>
+                        <div class="form-group">
+                            <label for="editImageWidth">Width (px)</label>
+                            <input type="number" class="form-control" id="editImageWidth" min="1" placeholder="Width">
+                        </div>
+                        <div class="form-group">
+                            <label for="editImageHeight">Height (px)</label>
+                            <input type="number" class="form-control" id="editImageHeight" min="1" placeholder="Height">
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="editImageKeepAspectRatio" checked>
+                                <label class="custom-control-label" for="editImageKeepAspectRatio">
+                                    Keep aspect ratio
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="applyImageEditBtn">Apply Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    // Append the modals to the body
     $('body').append(codeViewModal);
+    $('body').append(editImageModal);
+    
+    // Add event handlers for the edit image modal
+    $('#editImageModal').on('show.bs.modal', function() {
+        console.log('Edit image modal opening, currentEditingImage:', window.currentEditingImage);
+    });
+    
+    $('#editImageModal').on('hidden.bs.modal', function() {
+        console.log('Edit image modal closed, currentEditingImage:', window.currentEditingImage);
+        // Clear the stored image reference when modal is actually closed
+        window.currentEditingImage = null;
+        console.log('currentEditingImage cleared after modal close');
+    });
 
     // Add resize functionality to the code view modal
     $('#codeViewModal').on('shown.bs.modal', function() {
@@ -1441,6 +1565,117 @@ $('#summernote').on('click', function(e) {
         
         // Close the modal
         $('#codeViewModal').modal('hide');
+    });
+
+    // Handle applying image edits when the Apply button is clicked
+    $('#applyImageEditBtn').click(function() {
+        console.log('Apply button clicked, currentEditingImage:', window.currentEditingImage);
+        
+        // Prevent multiple clicks
+        if ($(this).hasClass('processing')) {
+            return;
+        }
+        
+        if (!window.currentEditingImage || !window.currentEditingImage.src) {
+            alert('No image selected for editing');
+            return;
+        }
+        
+        // Mark as processing to prevent multiple clicks
+        $(this).addClass('processing').prop('disabled', true);
+        
+        // Find the image by its src (since the DOM reference might be stale)
+        var $image = $('.note-editable img[src="' + window.currentEditingImage.src + '"]');
+        console.log('Looking for image with src:', window.currentEditingImage.src);
+        console.log('Found images:', $image.length);
+        
+        if ($image.length === 0) {
+            // Try alternative selectors if the exact src match fails
+            $image = $('.note-editable img').filter(function() {
+                return this.src === window.currentEditingImage.src || 
+                       this.src.endsWith(window.currentEditingImage.src.split('/').pop());
+            });
+            console.log('Alternative search found:', $image.length, 'images');
+        }
+        
+        if ($image.length === 0) {
+            alert('Could not find the selected image. Please try selecting the image again.');
+            $(this).removeClass('processing').prop('disabled', false);
+            return;
+        }
+        
+        var newTitle = $('#editImageTitle').val();
+        var newWidth = parseInt($('#editImageWidth').val());
+        var newHeight = parseInt($('#editImageHeight').val());
+        var keepAspectRatio = $('#editImageKeepAspectRatio').is(':checked');
+        
+        // Validate inputs
+        if (isNaN(newWidth) || newWidth <= 0) {
+            alert('Please enter a valid width');
+            $(this).removeClass('processing').prop('disabled', false);
+            return;
+        }
+        if (isNaN(newHeight) || newHeight <= 0) {
+            alert('Please enter a valid height');
+            $(this).removeClass('processing').prop('disabled', false);
+            return;
+        }
+        
+        console.log('Updating image with:', { title: newTitle, width: newWidth, height: newHeight });
+        
+        // Update the image properties
+        $image.attr('title', newTitle);
+        $image.css({
+            'width': newWidth + 'px',
+            'height': newHeight + 'px'
+        });
+        
+        // Force Summernote to refresh its UI and selection by triggering a change event
+        $('#summernote').summernote('code', $('#summernote').summernote('code'));
+        
+        // Close the modal first
+        $('#editImageModal').modal('hide');
+        
+        // Reset button state
+        $(this).removeClass('processing').prop('disabled', false);
+    });
+
+    // Handle aspect ratio preservation when width or height changes
+    $('#editImageWidth, #editImageHeight').on('input', function() {
+        var keepAspectRatio = $('#editImageKeepAspectRatio').is(':checked');
+        if (!keepAspectRatio) return;
+        
+        var aspectRatio = $('#editImageModal').data('aspectRatio');
+        if (!aspectRatio) return;
+        
+        var changedField = $(this).attr('id');
+        var newValue = parseInt($(this).val());
+        
+        if (isNaN(newValue) || newValue <= 0) return;
+        
+        if (changedField === 'editImageWidth') {
+            // Calculate new height based on width
+            var newHeight = Math.round(newValue / aspectRatio);
+            $('#editImageHeight').val(newHeight);
+        } else if (changedField === 'editImageHeight') {
+            // Calculate new width based on height
+            var newWidth = Math.round(newValue * aspectRatio);
+            $('#editImageWidth').val(newWidth);
+        }
+    });
+
+    // Handle aspect ratio checkbox change
+    $('#editImageKeepAspectRatio').on('change', function() {
+        var isChecked = $(this).is(':checked');
+        if (isChecked) {
+            // Recalculate based on current width
+            var currentWidth = parseInt($('#editImageWidth').val());
+            var aspectRatio = $('#editImageModal').data('aspectRatio');
+            if (currentWidth && aspectRatio) {
+                var newHeight = Math.round(currentWidth / aspectRatio);
+                $('#editImageHeight').val(newHeight);
+            }
+        }
     });
 
     // Function to update style dropdown based on selection
