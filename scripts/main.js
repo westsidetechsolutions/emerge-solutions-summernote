@@ -1,4 +1,7 @@
 $(document).ready(function() {
+    // Flag to prevent "no image selected" errors during operations
+    var isImageLinkOperationInProgress = false;
+    
     // Initialize Asset Manager
     const assetStore = {
         root: {
@@ -19,8 +22,6 @@ $(document).ready(function() {
                 
                 // Store the current path separately
                 sessionStorage.setItem('assetManagerCurrentPath', JSON.stringify(this.currentPath));
-                
-                console.log('Asset manager data saved to session storage');
             } catch(e) {
                 console.error('Failed to save to session storage:', e);
             }
@@ -34,14 +35,12 @@ $(document).ready(function() {
                     const parsedRoot = JSON.parse(rootData);
                     // Restore any binary data from separate storage
                     this.root = this.restoreFromStorage(parsedRoot);
-                    console.log('Loaded asset structure from session storage');
                 }
                 
                 // Load the current path
                 const pathData = sessionStorage.getItem('assetManagerCurrentPath');
                 if (pathData) {
                     this.currentPath = JSON.parse(pathData);
-                    console.log('Restored navigation path from session storage');
                 }
                 
                 return !!rootData; // Return true if we loaded data
@@ -394,8 +393,6 @@ $(document).ready(function() {
                 keysToRemove.forEach(key => {
                     sessionStorage.removeItem(key);
                 });
-                
-                console.log('Asset manager cleared successfully');
             } catch(e) {
                 console.error('Error clearing asset manager:', e);
             }
@@ -430,8 +427,63 @@ $(document).ready(function() {
             contents: '<i class="fas fa-link"/>',
             tooltip: 'Link',
             click: function () {
-                // When clicked, show our custom modal with two options instead of default link dialog
-                $('#linkOptionsModal').modal('show');
+                // Store the current selection before any operations
+                var currentSelection = window.getSelection();
+                var hasSelection = currentSelection.rangeCount > 0;
+                var selectionRange = hasSelection ? currentSelection.getRangeAt(0).cloneRange() : null;
+                
+                // Get the current selection to determine what's selected
+                var selection = window.getSelection();
+                var target = null;
+                
+                if (selection.rangeCount > 0) {
+                    var range = selection.getRangeAt(0);
+                    var commonAncestor = range.commonAncestorContainer;
+                    
+                    // Check if we have a direct image selection
+                    if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+                        if (commonAncestor.tagName === 'IMG') {
+                            target = commonAncestor;
+                        } else if (commonAncestor.tagName === 'A' && commonAncestor.querySelector('img')) {
+                            target = commonAncestor;
+                        } else {
+                            // Check if the selection contains an image
+                            var imgElement = commonAncestor.querySelector('img');
+                            if (imgElement) {
+                                target = imgElement;
+                            }
+                        }
+                    }
+                    
+                    // Also check if the selection is within an image
+                    var imgParent = $(commonAncestor).closest('img');
+                    if (imgParent.length > 0) {
+                        target = imgParent[0];
+                    }
+                }
+                
+                // Fallback: try Summernote's restoreTarget
+                if (!target) {
+                    target = $('#summernote').summernote('restoreTarget');
+                }
+                
+                // Debug logging
+                console.log('LinkButton: target found:', target);
+                console.log('LinkButton: target tagName:', target ? target.tagName : 'none');
+                
+                if (target && (target.tagName === 'IMG' || (target.tagName === 'A' && target.querySelector('img')))) {
+                    // Image is selected (either directly or wrapped in a link), show image link options
+                    console.log('LinkButton: showing image link modal');
+                    showImageLinkModal(target);
+                } else {
+                    // Text is selected or nothing selected, show regular link options
+                    // Store the selection in the modal's data for later use
+                    $('#linkOptionsModal').data('selectionRange', selectionRange);
+                    $('#linkOptionsModal').data('hasSelection', hasSelection);
+                    
+                    console.log('LinkButton: showing text link options modal');
+                    $('#linkOptionsModal').modal('show');
+                }
             }
         });
       
@@ -505,18 +557,15 @@ $(document).ready(function() {
         // Convert to jQuery object for easier manipulation
         var $target = $(target);
         
-        // Store the target image's src and position for later use
-        // This way we can find it even after the DOM is refreshed
+        // Store the target image's element reference and properties for later use
+        // This way we can find the exact image even after the DOM is refreshed
         window.currentEditingImage = {
+            element: target,  // Store the actual DOM element reference
             src: target.src,
             title: $target.attr('title') || '',
             width: $target.width(),
             height: $target.height()
         };
-        
-        console.log('Stored image data:', window.currentEditingImage);
-        console.log('Image src:', target.src);
-        console.log('Image natural dimensions:', target.naturalWidth, 'x', target.naturalHeight);
         
         // Get current image properties
         var currentTitle = $target.attr('title') || '';
@@ -541,6 +590,137 @@ $(document).ready(function() {
         
         // Show the modal
         $('#editImageModal').modal('show');
+    }
+
+    // Function to show the image link modal
+    function showImageLinkModal(targetElement) {
+        var $target = $(targetElement);
+        var $image, $link;
+        
+        // Determine if we have a direct image or a link-wrapped image
+        if (targetElement.tagName === 'IMG') {
+            // Direct image selection
+            $image = $target;
+            $link = $image.closest('a');
+            // Store the actual DOM element reference for reliable identification
+            window.currentLinkingImage = {
+                element: targetElement,
+                src: targetElement.src
+            };
+        } else if (targetElement.tagName === 'A' && targetElement.querySelector('img')) {
+            // Link-wrapped image selection
+            $link = $target;
+            $image = $link.find('img')[0];
+            // Store the actual DOM element reference for reliable identification
+            window.currentLinkingImage = {
+                element: $image,
+                src: $image.src
+            };
+        } else {
+            console.error('Invalid target for image link modal');
+            return;
+        }
+        
+        // Get current link properties
+        var currentHref = $link.length > 0 ? $link.attr('href') || '' : '';
+        var currentTarget = $link.length > 0 ? $link.attr('target') || '' : '';
+        var currentTitle = $link.length > 0 ? $link.attr('title') || '' : '';
+        
+        // Populate the modal fields
+        $('#imageLinkUrl').val(currentHref);
+        $('#imageLinkTitle').val(currentTitle);
+        $('#imageLinkNewWindow').prop('checked', currentTarget === '_blank');
+        
+        // Show/hide remove button based on whether link exists
+        if ($link.length > 0) {
+            $('#removeImageLinkBtn').show();
+            $('#applyImageLinkBtn').text('Update Link');
+        } else {
+            $('#removeImageLinkBtn').hide();
+            $('#applyImageLinkBtn').text('Add Link');
+        }
+        
+        // Show the modal
+        $('#imageLinkModal').modal('show');
+    }
+
+    // Simple function to find a specific image using a unique identifier
+    function findSpecificImage(imageInfo) {
+        if (!imageInfo || !imageInfo.element) {
+            return null;
+        }
+        
+        // First, try to find images with the same src
+        var $candidates = $('.note-editable img[src="' + imageInfo.src + '"]');
+        
+
+        
+        if ($candidates.length === 0) {
+            return null;
+        }
+        
+        if ($candidates.length === 1) {
+            // Only one image with this src, return it
+
+            return $candidates;
+        }
+        
+        // Multiple images with same src - use the stored DOM element reference
+        // This is the most reliable way since it's the actual element that was selected
+
+        
+        // Check if our stored element is still in the DOM
+        if (document.contains(imageInfo.element)) {
+
+            return $(imageInfo.element);
+        }
+        
+        // If the stored element is no longer in the DOM (e.g., after content refresh),
+        // we need to find it by looking at the surrounding content
+
+        
+        // Find the image that's in the same position relative to other content
+        // We'll use a simple approach: find the image that has the most similar surrounding text
+        var bestMatch = null;
+        var bestContextMatch = 0;
+        
+        for (var i = 0; i < $candidates.length; i++) {
+            var $candidate = $($candidates[i]);
+            var candidate = $candidate[0];
+            
+            // Get text content around this candidate
+            var $parent = $candidate.parent();
+            var parentText = $parent.text().trim();
+            
+            // Simple context matching: check if this candidate's parent has similar content
+            // to what we might expect based on the original selection
+            if (parentText.length > 0) {
+                var contextMatch = 0;
+                
+                // If this is the first candidate, give it a slight advantage
+                if (i === 0) contextMatch += 0.1;
+                
+                // Check if this candidate is in a paragraph (common for images)
+                if ($parent.is('p')) contextMatch += 0.2;
+                
+                // Check if this candidate is wrapped in a link (if we're editing links)
+                if ($candidate.closest('a').length > 0) contextMatch += 0.1;
+                
+                if (contextMatch > bestContextMatch) {
+                    bestContextMatch = contextMatch;
+                    bestMatch = $candidate;
+                }
+            }
+        }
+        
+        if (bestMatch) {
+
+            return bestMatch;
+        }
+        
+        // Last resort: return the first candidate
+
+        return $($candidates[0]);
     }
 
     // Edit Image Button for Popover
@@ -701,8 +881,6 @@ $(document).ready(function() {
                 },
             },
             onInit: function() {
-                console.log('Summernote initialized');
-                // Add resize functionality after Summernote is initialized
                 setTimeout(function() {
                     makeTablesResizable();
                     makeVideosResizable();
@@ -865,24 +1043,68 @@ $('#summernote').on('click', function(e) {
     $('body').append(linkOptionsModal);
 
     // Handle the link option buttons
-    $('#manualLinkBtn').click(function() {
+    $('#manualLinkBtn').off('click').on('click', function() {
+        // Prevent multiple clicks
+        if ($(this).hasClass('processing')) {
+            return;
+        }
+        $(this).addClass('processing');
+        
+        // Store the current selection before closing the modal
+        var currentSelection = window.getSelection();
+        var hasSelection = currentSelection.rangeCount > 0;
+        var selectionRange = hasSelection ? currentSelection.getRangeAt(0).cloneRange() : null;
+        
         // Close our modal
         $('#linkOptionsModal').modal('hide');
         
-        // We need to trigger the native Summernote link dialog
-        // Instead of calling createLink directly, which doesn't show the dialog
+        // Show our custom text link modal instead of trying to trigger Summernote's native dialog
         setTimeout(function() {
-            // Use the native Summernote command to show the link dialog
-            $('#summernote').summernote('linkDialog.show');
+            // Check if modal is already open
+            if ($('#textLinkModal').hasClass('show')) {
+                console.log('Text Link Modal: Already open, not opening again');
+                $('#manualLinkBtn').removeClass('processing');
+                return;
+            }
+            
+            // Store the selection in the modal's data for later use
+            $('#textLinkModal').data('selectionRange', selectionRange);
+            $('#textLinkModal').data('hasSelection', hasSelection);
+            
+            // Pre-populate the text field with any selected text
+            var selectedText = '';
+            if (hasSelection) {
+                selectedText = currentSelection.toString().trim();
+            }
+            
+            // Set the text field value
+            $('#textLinkText').val(selectedText);
+            
+            // Show the modal
+            $('#textLinkModal').modal('show');
+            
+            // Remove processing class after modal is shown
+            setTimeout(function() {
+                $('#manualLinkBtn').removeClass('processing');
+            }, 200);
         }, 100);  // Small delay to ensure our modal is closed first
     });
 
-    $('#assetLinkBtn').click(function() {
+    $('#assetLinkBtn').off('click').on('click', function() {
+        // Get the stored selection from the modal
+        var selectionRange = $('#linkOptionsModal').data('selectionRange');
+        var hasSelection = $('#linkOptionsModal').data('hasSelection');
+        
+        // Store the selection in the asset manager modal for later use
+        $('#assetManagerModal').data('selectionRange', selectionRange);
+        $('#assetManagerModal').data('hasSelection', hasSelection);
+        $('#assetManagerModal').data('mode', 'link');
+        
         // Close our modal
         $('#linkOptionsModal').modal('hide');
         
         // Open the asset manager with link mode
-        $('#assetManagerModal').data('mode', 'link').modal('show');
+        $('#assetManagerModal').modal('show');
     });
 
     // View toggle handlers
@@ -978,10 +1200,38 @@ $('#summernote').on('click', function(e) {
         const mode = $('#assetManagerModal').data('mode') || 'insert';
         
         if (mode === 'link') {
-            // For link dialog
-            $('.note-link-text').val($('.note-link-text').val() || item.name);
-            $('.note-link-url').val(item.data);
-            $('.note-link-btn').removeClass('disabled');
+            // For link dialog - we need to create the link at the correct position
+            var selectionRange = $('#assetManagerModal').data('selectionRange');
+            var hasSelection = $('#assetManagerModal').data('hasSelection');
+            
+            // Close the modal first
+            $('#assetManagerModal').modal('hide');
+            
+            // Create the link at the correct position
+            setTimeout(function() {
+                if (hasSelection && selectionRange) {
+                    // Restore the selection
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(selectionRange);
+                    
+                    // Create the link at the selected position
+                    $('#summernote').summernote('createLink', {
+                        text: item.name,
+                        url: item.data,
+                        isNewWindow: true
+                    });
+                } else {
+                    // No selection, create link at cursor position
+                    $('#summernote').summernote('createLink', {
+                        text: item.name,
+                        url: item.data,
+                        isNewWindow: true
+                    });
+                }
+            }, 100);
+            
+            return; // Exit early since we handled the link creation
         } else {
             // Direct insert - HANDLE ONLY ONE INSERT TYPE
             if (item.mimeType && item.mimeType.startsWith('image/')) {
@@ -1013,7 +1263,6 @@ $('#summernote').on('click', function(e) {
             $('#assetTree li').removeClass('selected');
             $('#assetGrid .asset-item').removeClass('selected');
             $(this).addClass('selected');
-            console.log('Selected tree item:', $(this).find('span').text(), 'ID:', $(this).data('id'));
         }
     });
     
@@ -1023,7 +1272,6 @@ $('#summernote').on('click', function(e) {
             $('#assetTree li').removeClass('selected');
             $('#assetGrid .asset-item').removeClass('selected');
             $(this).addClass('selected');
-            console.log('Selected grid item:', $(this).find('.asset-name').text(), 'ID:', $(this).data('id'));
         }
     });
 
@@ -1050,7 +1298,6 @@ $('#summernote').on('click', function(e) {
     const $editable = $('.note-editable');
     
     if ($editor.length && $editable.length) {
-        console.log('Found editor, adding resize handle');
         
         // Create and append the resize handle
         const $resizeHandle = $('<div class="note-resize-handle"></div>').appendTo($editor);
@@ -1447,7 +1694,7 @@ $('#summernote').on('click', function(e) {
                 <div class="modal-body">
                     <form id="editImageForm">
                         <div class="form-group">
-                            <label for="editImageTitle">Image Title (alt text)</label>
+                            <label for="editImageTitle">Image Title</label>
                             <input type="text" class="form-control" id="editImageTitle" placeholder="Enter image title...">
                         </div>
                         <div class="form-group">
@@ -1477,20 +1724,138 @@ $('#summernote').on('click', function(e) {
     </div>
     `;
 
+    // Add the image link modal HTML to the page
+    const imageLinkModal = `
+    <div class="modal fade" id="imageLinkModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Link Image</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="imageLinkForm">
+                        <div class="form-group">
+                            <label for="imageLinkUrl">URL</label>
+                            <input type="url" class="form-control" id="imageLinkUrl" placeholder="Enter URL (e.g., https://example.com)">
+                        </div>
+                        <div class="form-group">
+                            <label for="imageLinkTitle">Link Title (tooltip)</label>
+                            <input type="text" class="form-control" id="imageLinkTitle" placeholder="Enter title for tooltip...">
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="imageLinkNewWindow">
+                                <label class="custom-control-label" for="imageLinkNewWindow">
+                                    Open in new window/tab
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="removeImageLinkBtn">Remove Link</button>
+                    <button type="button" class="btn btn-primary" id="applyImageLinkBtn">Apply Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
     // Append the modals to the body
     $('body').append(codeViewModal);
     $('body').append(editImageModal);
+    $('body').append(imageLinkModal);
+    
+    // Add a fallback text link modal for when Summernote's native dialog fails
+    const textLinkModal = `
+    <div class="modal fade" id="textLinkModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Insert Text Link</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="textLinkForm">
+                        <div class="form-group">
+                            <label for="textLinkUrl">URL</label>
+                            <input type="url" class="form-control" id="textLinkUrl" placeholder="Enter URL (e.g., https://example.com)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="textLinkText">Link Text</label>
+                            <input type="text" class="form-control" id="textLinkText" placeholder="Enter link text..." required>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="textLinkNewWindow">
+                                <label class="custom-control-label" for="textLinkNewWindow">
+                                    Open in new window/tab
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="applyTextLinkBtn">Insert Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    $('body').append(textLinkModal);
     
     // Add event handlers for the edit image modal
     $('#editImageModal').on('show.bs.modal', function() {
-        console.log('Edit image modal opening, currentEditingImage:', window.currentEditingImage);
+        // Modal opening - no action needed
     });
     
     $('#editImageModal').on('hidden.bs.modal', function() {
-        console.log('Edit image modal closed, currentEditingImage:', window.currentEditingImage);
         // Clear the stored image reference when modal is actually closed
         window.currentEditingImage = null;
-        console.log('currentEditingImage cleared after modal close');
+    });
+
+    // Add event handlers for the image link modal
+    $('#imageLinkModal').on('show.bs.modal', function() {
+    });
+    
+    $('#imageLinkModal').on('hidden.bs.modal', function() {
+        // Only clear if no operation is in progress
+        if (!isImageLinkOperationInProgress) {
+            window.currentLinkingImage = null;
+        }
+        // Reset the flag
+        isImageLinkOperationInProgress = false;
+    });
+    
+    // Add event handlers for the text link modal
+    $('#textLinkModal').off('show.bs.modal hidden.bs.modal').on('show.bs.modal', function() {
+        console.log('Text Link Modal: Opening modal');
+        
+        // Clear any previous values when modal opens
+        $('#textLinkUrl').val('');
+        $('#textLinkNewWindow').prop('checked', false);
+        
+        // Debug: Check if form fields exist
+        console.log('Text Link Modal: URL field exists:', $('#textLinkUrl').length > 0);
+        console.log('Text Link Modal: Text field exists:', $('#textLinkText').length > 0);
+        
+        // Focus on the URL field
+        setTimeout(function() {
+            $('#textLinkUrl').focus();
+        }, 150);
+    });
+    
+    $('#textLinkModal').on('hidden.bs.modal', function() {
+        // Clear the form when modal is closed
+        $('#textLinkForm')[0].reset();
     });
 
     // Add resize functionality to the code view modal
@@ -1569,8 +1934,6 @@ $('#summernote').on('click', function(e) {
 
     // Handle applying image edits when the Apply button is clicked
     $('#applyImageEditBtn').click(function() {
-        console.log('Apply button clicked, currentEditingImage:', window.currentEditingImage);
-        
         // Prevent multiple clicks
         if ($(this).hasClass('processing')) {
             return;
@@ -1584,24 +1947,47 @@ $('#summernote').on('click', function(e) {
         // Mark as processing to prevent multiple clicks
         $(this).addClass('processing').prop('disabled', true);
         
-        // Find the image by its src (since the DOM reference might be stale)
-        var $image = $('.note-editable img[src="' + window.currentEditingImage.src + '"]');
-        console.log('Looking for image with src:', window.currentEditingImage.src);
-        console.log('Found images:', $image.length);
+        // Find the specific image using the stored element reference
+        var $image = null;
         
-        if ($image.length === 0) {
-            // Try alternative selectors if the exact src match fails
-            $image = $('.note-editable img').filter(function() {
-                return this.src === window.currentEditingImage.src || 
-                       this.src.endsWith(window.currentEditingImage.src.split('/').pop());
-            });
-            console.log('Alternative search found:', $image.length, 'images');
+        // Debug logging
+        console.log('Edit Image: Stored element exists:', !!window.currentEditingImage.element);
+        console.log('Edit Image: Stored element in DOM:', window.currentEditingImage.element ? document.contains(window.currentEditingImage.element) : false);
+        console.log('Edit Image: Stored dimensions:', window.currentEditingImage.width + 'x' + window.currentEditingImage.height);
+        
+        // First, try to use the stored DOM element reference (most reliable)
+        if (window.currentEditingImage.element && document.contains(window.currentEditingImage.element)) {
+            $image = $(window.currentEditingImage.element);
+            console.log('Edit Image: Using stored DOM element reference');
         }
         
-        if ($image.length === 0) {
-            alert('Could not find the selected image. Please try selecting the image again.');
-            $(this).removeClass('processing').prop('disabled', false);
-            return;
+        // If the stored element is no longer in the DOM, fall back to finding by src
+        if (!$image || $image.length === 0) {
+            var $candidates = $('.note-editable img[src="' + window.currentEditingImage.src + '"]');
+            console.log('Edit Image: Found', $candidates.length, 'images with same src');
+            
+            if ($candidates.length === 1) {
+                // Only one image with this src, use it
+                $image = $candidates;
+                console.log('Edit Image: Using single image found by src');
+            } else if ($candidates.length > 1) {
+                // Multiple images with same src - try to find the one with matching dimensions
+                var targetWidth = window.currentEditingImage.width;
+                var targetHeight = window.currentEditingImage.height;
+                
+                $image = $candidates.filter(function() {
+                    return Math.abs($(this).width() - targetWidth) < 5 && 
+                           Math.abs($(this).height() - targetHeight) < 5;
+                });
+                
+                console.log('Edit Image: Found', $image.length, 'images with matching dimensions');
+                
+                // If still multiple matches, use the first one and log a warning
+                if ($image.length > 1) {
+                    console.warn('Multiple images with same src and dimensions found. Using first match.');
+                    $image = $image.first();
+                }
+            }
         }
         
         var newTitle = $('#editImageTitle').val();
@@ -1621,17 +2007,22 @@ $('#summernote').on('click', function(e) {
             return;
         }
         
-        console.log('Updating image with:', { title: newTitle, width: newWidth, height: newHeight });
-        
-        // Update the image properties
-        $image.attr('title', newTitle);
-        $image.css({
-            'width': newWidth + 'px',
-            'height': newHeight + 'px'
-        });
-        
-        // Force Summernote to refresh its UI and selection by triggering a change event
-        $('#summernote').summernote('code', $('#summernote').summernote('code'));
+        // Only proceed if we found an image to edit
+        if ($image && $image.length > 0) {
+            // Update the image properties
+            $image.attr('title', newTitle);
+            $image.css({
+                'width': newWidth + 'px',
+                'height': newHeight + 'px'
+            });
+            
+            // Force Summernote to refresh its UI and selection by triggering a change event
+            $('#summernote').summernote('code', $('#summernote').summernote('code'));
+            
+            console.log('Edit Image: Successfully updated image dimensions');
+        } else {
+            console.warn('Edit Image: Could not find the selected image to edit');
+        }
         
         // Close the modal first
         $('#editImageModal').modal('hide');
@@ -1676,6 +2067,184 @@ $('#summernote').on('click', function(e) {
                 $('#editImageHeight').val(newHeight);
             }
         }
+    });
+
+    // Handle applying text links when the Apply button is clicked
+    $('#applyTextLinkBtn').off('click').on('click', function() {
+        // Prevent multiple clicks
+        if ($(this).hasClass('processing')) {
+            return;
+        }
+        $(this).addClass('processing');
+        
+        var url = $('#textLinkUrl').val().trim();
+        var text = $('#textLinkText').val().trim();
+        var newWindow = $('#textLinkNewWindow').is(':checked');
+        
+        // Debug logging
+        console.log('Text Link Modal - URL field value:', url);
+        console.log('Text Link Modal - Text field value:', text);
+        console.log('Text Link Modal - New window checked:', newWindow);
+        
+        if (!url) {
+            alert('Please enter a URL');
+            $(this).removeClass('processing');
+            return;
+        }
+        
+        if (!text) {
+            alert('Please enter link text');
+            $(this).removeClass('processing');
+            return;
+        }
+        
+        // Get the stored selection from the modal
+        var selectionRange = $('#textLinkModal').data('selectionRange');
+        var hasSelection = $('#textLinkModal').data('hasSelection');
+        
+        // Close the modal first
+        $('#textLinkModal').modal('hide');
+        
+        // Clear the form
+        $('#textLinkForm')[0].reset();
+        
+        // Remove processing class
+        $(this).removeClass('processing');
+        
+        // Now create the link at the correct position
+        setTimeout(function() {
+            if (hasSelection && selectionRange) {
+                // Restore the selection
+                var selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(selectionRange);
+                
+                // Create the link at the selected position
+                $('#summernote').summernote('createLink', {
+                    text: text,
+                    url: url,
+                    isNewWindow: newWindow
+                });
+            } else {
+                // No selection, create link at cursor position
+                $('#summernote').summernote('createLink', {
+                    text: text,
+                    url: url,
+                    isNewWindow: newWindow
+                });
+            }
+        }, 100);
+    });
+
+    // Handle applying image links when the Apply button is clicked
+    $('#applyImageLinkBtn').click(function() {
+        // Set flag to prevent errors during operation
+        isImageLinkOperationInProgress = true;
+        
+        if (!window.currentLinkingImage) {
+            alert('No image selected for linking');
+            isImageLinkOperationInProgress = false;
+            return;
+        }
+        
+        var url = $('#imageLinkUrl').val().trim();
+        var title = $('#imageLinkTitle').val().trim();
+        var newWindow = $('#imageLinkNewWindow').is(':checked');
+        
+        if (!url) {
+            alert('Please enter a URL');
+            return;
+        }
+        
+        // Find the specific image using multiple identifiers to avoid affecting duplicate images
+        var $image = findSpecificImage(window.currentLinkingImage);
+        if (!$image || $image.length === 0) {
+            alert('Could not find the selected image');
+            return;
+        }
+        
+        // Check if the image already has a link
+        var $existingLink = $image.closest('a');
+        
+        if ($existingLink.length > 0) {
+            // Update existing link
+            $existingLink.attr({
+                'href': url,
+                'title': title
+            });
+            
+            if (newWindow) {
+                $existingLink.attr('target', '_blank');
+            } else {
+                $existingLink.removeAttr('target');
+            }
+        } else {
+            // Create new link
+            var $link = $('<a>').attr({
+                'href': url,
+                'title': title
+            });
+            
+            if (newWindow) {
+                $link.attr('target', '_blank');
+            }
+            
+            // Wrap the image in the link
+            $image.wrap($link);
+        }
+        
+        // Store the image src for cleanup
+        var imageSrc = window.currentLinkingImage.src;
+        
+        // Close the modal first
+        $('#imageLinkModal').modal('hide');
+        
+        // Clear the stored image reference after modal starts closing
+        setTimeout(function() {
+            window.currentLinkingImage = null;
+        }, 100);
+    });
+
+    // Handle removing image links
+    $('#removeImageLinkBtn').click(function() {
+        // Set flag to prevent errors during operation
+        isImageLinkOperationInProgress = true;
+        
+        if (!window.currentLinkingImage) {
+            alert('No image selected');
+            isImageLinkOperationInProgress = false;
+            return;
+        }
+        
+        // Find the specific image using multiple identifiers to avoid affecting duplicate images
+        var $image = findSpecificImage(window.currentLinkingImage);
+        if (!$image || $image.length === 0) {
+            alert('Could not find the selected image');
+            return;
+        }
+        
+        // Check if the image is wrapped in a link
+        var $link = $image.closest('a');
+        if ($link.length > 0) {
+            // Unwrap the image from the link
+            $image.insertBefore($link);
+            $link.remove();
+            
+            // Clear the form fields
+            $('#imageLinkUrl').val('');
+            $('#imageLinkTitle').val('');
+            $('#imageLinkNewWindow').prop('checked', false);
+            
+            // Update button text and hide remove button
+            $('#applyImageLinkBtn').text('Add Link');
+            $('#removeImageLinkBtn').hide();
+        }
+        
+        // Clear the stored image reference first
+        window.currentLinkingImage = null;
+        
+        // Close the modal
+        $('#imageLinkModal').modal('hide');
     });
 
     // Function to update style dropdown based on selection
