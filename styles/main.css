@@ -647,3 +647,98 @@
   border-color: #0056b3 !important;
   opacity: 1 !important;
 }
+
+/* Edit Image Modal Styling */
+#editImageModal {
+    z-index: 1070 !important; /* Higher than Summernote popovers (1060) */
+}
+
+#editImageModal .modal-body {
+    padding: 20px;
+}
+
+#editImageModal .form-group {
+    margin-bottom: 20px;
+}
+
+#editImageModal .form-control {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+#editImageModal .form-control:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#editImageModal .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+#editImageModal .custom-control-label {
+    font-size: 14px;
+    color: #495057;
+}
+
+/* Image Link Modal Styling */
+#imageLinkModal {
+    z-index: 1070 !important; /* Higher than Summernote popovers (1060) */
+}
+
+#imageLinkModal .modal-body {
+    padding: 20px;
+}
+
+#imageLinkModal .form-group {
+    margin-bottom: 20px;
+}
+
+#imageLinkModal .form-control {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+#imageLinkModal .form-control:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#imageLinkModal .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+#imageLinkModal .custom-control-label {
+    font-size: 14px;
+    color: #495057;
+}
+
+/* Edit Image Button in Popover */
+.note-popover .note-btn[data-event="editImage"] {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.note-popover .note-btn[data-event="editImage"]:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* Edit Image Modal Button States */
+#editImageModal .btn.processing {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#editImageModal .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
