@@ -15,6 +15,8 @@
     <!-- Add these before your closing head tag -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <!-- iro.js Color Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@jaames/iro@5.5.2/dist/iro.css">
 </head>
 <body>
     <div class="container mt-4">
@@ -79,6 +81,45 @@
             </div>
         </div>
     </div>
+    
+    <!-- Color Picker Modal -->
+    <div class="modal fade" id="colorPickerModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="colorPickerTitle">Text Color</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="color-picker-container">
+                        <!-- Text Color Picker -->
+                        <div id="textColorPicker" class="color-picker-instance" style="display: none;"></div>
+                        <!-- Background Color Picker -->
+                        <div id="backgroundColorPicker" class="color-picker-instance" style="display: none;"></div>
+                        <div class="color-inputs mt-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="hexInput" class="form-label">Hex</label>
+                                    <input type="text" class="form-control form-control-sm" id="hexInput" placeholder="#000000" pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" title="Enter a valid hex color (e.g., #FF0000 or #F00)">
+                                </div>
+                                <div class="col-6">
+                                    <label for="rgbInput" class="form-label">RGB</label>
+                                    <input type="text" class="form-control form-control-sm" id="rgbInput" placeholder="rgb(0,0,0)" pattern="^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$" title="Enter a valid RGB color (e.g., rgb(255,0,0) or rgba(255,0,0,1))">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="applyColorBtn">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
@@ -88,5 +129,7 @@
     <script src="scripts/summernote-cell-background.js"></script>
     <script src="scripts/main.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.7/beautify-html.min.js"></script>
+    <!-- iro.js Color Picker -->
+    <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5.5.2/dist/iro.min.js"></script>
 </body>
 </html>

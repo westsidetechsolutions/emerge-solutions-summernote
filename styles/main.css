@@ -1,3 +1,8 @@
+/* Page background */
+body {
+    background-color: #fafafa;
+}
+
 #assetManagerModal .modal-content {
     height: 80vh;
     display: flex;
@@ -125,6 +130,7 @@
     background-color: #f8f9fa;
     border: 1px solid #ddd;
     padding: 5px 10px;
+    font-family: inherit;
 }
 
 .note-btn-asset-manager:hover {
@@ -152,6 +158,7 @@
     background: #fff;
     border-bottom: 1px solid #e8e8e8;
     padding: 8px 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 }
 
 .note-btn {
@@ -159,9 +166,10 @@
     background: transparent;
     padding: 5px 10px;
     font-size: 14px;
-    color: #333;
+    color: #444;
     border-radius: 4px;
     margin: 0 2px;
+    font-family: inherit;
 }
 
 .note-btn:hover {
@@ -172,24 +180,105 @@
     background-color: #e8e8e8;
 }
 
-/* Toolbar group separators */
+/* Remove all toolbar group separators */
 .note-btn-group:not(:last-child):after {
-    content: '';
-    position: absolute;
-    right: -10px;
-    top: 50%;
-    transform: translateY(-50%);
-    border-right: 1px solid #e8e8e8;
-    height: 20px;
-    display: inline-block;
-    vertical-align: middle;
+    display: none;
 }
 
 .note-btn-group {
     position: relative;
     display: inline-flex;
     vertical-align: middle;
+    margin-right: 5px;
 }
+
+/* Add some spacing between major toolbar groups */
+.note-toolbar .note-btn-group:nth-child(1) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(2) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(3) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(4) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(5) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(6) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(7) {
+    margin-right: 15px;
+}
+
+.note-toolbar .note-btn-group:nth-child(8) {
+    margin-right: 15px;
+}
+
+/* Toolbar divider styling */
+.toolbar-divider {
+    width: 2px;
+    height: 30px;
+    background-color: #ddd;
+    margin: 0 10px;
+    border-radius: 1px;
+}
+
+/* Make divider button non-interactive */
+.note-btn-group:has(.toolbar-divider) .note-btn {
+    cursor: default;
+    pointer-events: none;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.note-btn-group:has(.toolbar-divider) .note-btn:hover {
+    background: transparent !important;
+}
+
+/* Toolbar line break styling */
+.toolbar-line-break {
+    width: 100%;
+    height: 1px;
+    background-color: transparent;
+    margin: 5px 0;
+    display: block;
+}
+
+/* Make line break button take full width and create spacing */
+.note-btn-group:has(.toolbar-line-break) {
+    width: 100% !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.note-btn-group:has(.toolbar-line-break) .note-btn {
+    width: 100% !important;
+    height: 10px !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: default !important;
+    pointer-events: none !important;
+}
+
+.note-btn-group:has(.toolbar-line-break) .note-btn:hover {
+    background: transparent !important;
+}
+
 
 /* Status bar removal */
 .note-statusbar {
@@ -204,7 +293,7 @@
 
 .note-editable {
     background: #fff;
-    color: #333;
+    color: #444;
     font-size: 15px;
     line-height: 1.6;
 }
@@ -214,12 +303,13 @@
     border: 1px solid #e8e8e8;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     border-radius: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Code View Syntax Highlighting */
 .note-codable {
     background-color: #f8f9fa !important;
-    color: #333 !important;
+    color: #444 !important;
     font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
 }
 
@@ -345,10 +435,11 @@
     font-size: 14px;
     display: block;
     text-decoration: none;
-    color: #333;
+    color: #444;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-family: inherit;
 }
 
 /* Each font in the dropdown will be styled with its own font */
@@ -522,10 +613,11 @@
     font-size: 14px;
     display: block;
     text-decoration: none;
-    color: #333;
+    color: #444;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-family: inherit;
 }
 
 /* Style preview in dropdown */
@@ -741,4 +833,108 @@
 #editImageModal .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* Color Picker Modal Styling */
+#colorPickerModal {
+    z-index: 1070 !important; /* Higher than Summernote popovers (1060) */
+}
+
+#colorPickerModal .modal-dialog {
+    max-width: 350px;
+}
+
+#colorPickerModal .modal-body {
+    padding: 20px;
+}
+
+.color-picker-container {
+    text-align: center;
+}
+
+#colorPicker {
+    margin: 0 auto 20px auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.color-inputs .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.color-inputs .form-control {
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.color-inputs .form-control:invalid {
+    border-color: #dc3545;
+}
+
+.color-inputs .form-control:valid {
+    border-color: #28a745;
+}
+
+.color-inputs .form-control:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* iro.js Color Picker Custom Styling */
+.iro__colorPicker {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.iro__wheel {
+    border-radius: 8px;
+}
+
+.iro__slider {
+    border-radius: 4px;
+}
+
+.iro__slider--hue {
+    background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+
+.iro__slider--saturation {
+    background: linear-gradient(to right, #808080, #ff0000);
+}
+
+.iro__slider--value {
+    background: linear-gradient(to right, #000000, #ff0000);
+}
+
+/* Color picker button styling */
+.note-btn[data-event="foregroundColor"],
+.note-btn[data-event="backgroundColor"] {
+    position: relative;
+}
+
+.note-btn[data-event="foregroundColor"]:after,
+.note-btn[data-event="backgroundColor"]:after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 2px;
+    background-color: currentColor;
+    border-radius: 1px;
+}
+
+.note-btn[data-event="backgroundColor"]:after {
+    background-color: #ff0000; /* Default red for background color indicator */
 }

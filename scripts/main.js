@@ -407,7 +407,7 @@ $(document).ready(function() {
       
         // create button
         var button = ui.button({
-          contents: '<i class="fas fa-folder-open"/> Asset Manager',
+          contents: '<i class="fas fa-folder-open"></i> Asset Manager',
           tooltip: 'Asset Manager',
           click: function () {
             // Open the asset manager modal
@@ -738,6 +738,106 @@ $(document).ready(function() {
         return button.render();
     };
 
+    // Custom Save Button
+    var SaveButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // create button
+        var button = ui.button({
+            contents: '<i class="fas fa-save"></i>',
+            tooltip: 'Save',
+            click: function () {
+                // Placeholder for save functionality
+                console.log('Save button clicked - functionality to be implemented');
+                alert('Save functionality will be implemented here');
+            }
+        });
+      
+        return button.render(); // return button as jquery object
+    };
+
+    // Custom Preview Button
+    var PreviewButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // create button
+        var button = ui.button({
+            contents: '<i class="fas fa-eye"></i>',
+            tooltip: 'Preview',
+            click: function () {
+                // Placeholder for preview functionality
+                console.log('Preview button clicked - functionality to be implemented');
+                alert('Preview functionality will be implemented here');
+            }
+        });
+      
+        return button.render(); // return button as jquery object
+    };
+
+    // Custom Divider Button
+    var DividerButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // create divider
+        var divider = ui.button({
+            contents: '<div class="toolbar-divider"></div>',
+            tooltip: '',
+            click: function () {
+                // Do nothing - this is just a visual divider
+            }
+        });
+      
+        return divider.render();
+    };
+
+    // Custom Line Break Button
+    var LineBreakButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // create line break
+        var lineBreak = ui.button({
+            contents: '<div class="toolbar-line-break"></div>',
+            tooltip: '',
+            click: function () {
+                // Do nothing - this is just a line break
+            }
+        });
+      
+        return lineBreak.render();
+    };
+
+    // Custom Foreground Color Picker Button
+    var ForegroundColorButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // create button
+        var button = ui.button({
+            contents: '<i class="fas fa-font"></i>',
+            tooltip: 'Text Color',
+            click: function () {
+                showSpectrumColorPicker('foreground');
+            }
+        });
+      
+        return button.render();
+    };
+
+    // Custom Background Color Picker Button
+    var BackgroundColorButton = function (context) {
+        var ui = $.summernote.ui;
+      
+        // create button
+        var button = ui.button({
+            contents: '<i class="fas fa-highlighter"></i>',
+            tooltip: 'Background Color',
+            click: function () {
+                showSpectrumColorPicker('background');
+            }
+        });
+      
+        return button.render();
+    };
+
     // Custom Alignment Dropdown Button
     var CustomAlignDropdown = function (context) {
         var ui = $.summernote.ui;
@@ -804,7 +904,13 @@ $(document).ready(function() {
             linkCustom: LinkButton,
             codeViewCustom: CodeViewButton,
             customAlignDropdown: CustomAlignDropdown,
-            editImage: EditImageButton
+            editImage: EditImageButton,
+            saveButton: SaveButton,
+            previewButton: PreviewButton,
+            divider: DividerButton,
+            lineBreak: LineBreakButton,
+            foregroundColor: ForegroundColorButton,
+            backgroundColor: BackgroundColorButton
         },
         height: 400,
         minHeight: null,
@@ -815,18 +921,24 @@ $(document).ready(function() {
 
         fontNamesIgnoreCheck: ['Liberation Sans', 'Proximanova Regular'],
         toolbar: [
+            // FIRST BLOCK: Preview, Save, Expand, Undo, Redo, HTML
+            ['misc', ['previewButton', 'saveButton', 'fullscreen', 'undo', 'redo', 'codeViewCustom']],
+            // FORCE LINE BREAK
+            ['lineBreak'],
+            // FORMAT BLOCK: Style, Bold, Italic, Underline, Clear, Font, Font Size, Font Height, Lists, Colors, Alignment
             ['style', ['style']],
             ['font', ['bold', 'italic', 'underline', 'clear']],
             ['fontname', ['fontname']],
             ['fontsize', ['fontsize']],
-            ['color', ['color']],
-            ['para', ['customAlignDropdown']],
             ['height', ['height']],
+            ['para', ['ul', 'ol']],
+            ['color', ['foregroundColor', 'backgroundColor']],
+            ['para', ['customAlignDropdown']],
+            // FORCE LINE BREAK
+            ['lineBreak'],
+            // INSERT BLOCK: Table, Link, Image, Video, Asset Manager
             ['table', ['table']],
-            ['insert', ['linkCustom', 'picture', 'video', 'assetManager']],
-            ['misc', ['codeViewCustom']],
-            ['view', ['fullscreen']],
-            ['history', ['undo', 'redo']]
+            ['insert', ['linkCustom', 'picture', 'video', 'assetManager']]
         ],
         fontSizes: ['8', '9', '10', '11', '12', '14', '16', '18', '20', '22', '24', '28', '32', '36', '48', '64', '72'],
         // Remove status bar
@@ -2299,4 +2411,704 @@ $('#summernote').on('click', function(e) {
         
         return styleMap[tagName] || 'Normal';
     }
+
+    // Color Picker Function - Separate instances for text and background
+    let textColorPickerInstance = null;
+    let backgroundColorPickerInstance = null;
+    let currentColorType = 'foreground';
+    let isUpdatingFromInputs = false;
+    let detectedCurrentColor = null;
+    let savedCursorPosition = null;
+    
+    function saveCursorPosition() {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            savedCursorPosition = selection.getRangeAt(0).cloneRange();
+            console.log('Saved cursor position');
+        }
+    }
+    
+    function restoreCursorPosition() {
+        if (savedCursorPosition) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(savedCursorPosition);
+            console.log('Restored cursor position');
+            savedCursorPosition = null;
+        }
+    }
+    
+    function showSpectrumColorPicker(colorType = 'foreground') {
+        currentColorType = colorType;
+        console.log('Opening color picker for type:', colorType);
+        
+        // Save the current cursor position before opening the modal
+        saveCursorPosition();
+        
+        // Check if we have a selection
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0 || selection.toString().trim() === '') {
+            console.log('No text selected, focusing editor but keeping cursor position');
+            // Focus the editor but don't move the cursor
+            $('#summernote').summernote('focus');
+            // Don't move cursor - let it stay where it is
+        }
+        
+        // Debug: Log the current editor content
+        console.log('=== EDITOR CONTENT DEBUG ===');
+        const $editor = $('#summernote');
+        console.log('Editor element found:', $editor.length > 0);
+        
+        // Try different selectors to find the editable area
+        const $editable1 = $editor.find('.note-editable');
+        const $editable2 = $('.note-editable');
+        const $editable3 = $editor.find('[contenteditable="true"]');
+        const $editable4 = $('[contenteditable="true"]');
+        
+        console.log('Editable element (.note-editable in editor):', $editable1.length > 0);
+        console.log('Editable element (.note-editable global):', $editable2.length > 0);
+        console.log('Editable element ([contenteditable] in editor):', $editable3.length > 0);
+        console.log('Editable element ([contenteditable] global):', $editable4.length > 0);
+        
+        // Use the first one that works
+        const $editable = $editable1.length > 0 ? $editable1 : 
+                         $editable2.length > 0 ? $editable2 : 
+                         $editable3.length > 0 ? $editable3 : $editable4;
+        
+        console.log('Using editable element:', $editable.length > 0);
+        console.log('Editor HTML:', $editable.html());
+        console.log('Editor text:', $editable.text());
+        
+        // Also check if there are any elements with color styles
+        const coloredElements = $editable.find('*[style*="color"]');
+        console.log('Elements with color styles:', coloredElements.length);
+        coloredElements.each(function(i, el) {
+            console.log('Colored element', i, ':', el.tagName, el.style.color, el.textContent);
+        });
+        
+        // Detect current color immediately while we have the selection
+        detectedCurrentColor = getCurrentColorFromSelection();
+        console.log('=== COLOR DETECTION RESULT ===');
+        console.log('Color type:', colorType);
+        console.log('Detected current color:', detectedCurrentColor);
+        console.log('Selection range count:', window.getSelection().rangeCount);
+        console.log('Selection text:', window.getSelection().toString());
+        
+        // Update modal title
+        const title = colorType === 'foreground' ? 'Text Color' : 'Background Color';
+        $('#colorPickerTitle').text(title);
+        
+        // Show the modal
+        $('#colorPickerModal').modal('show');
+        
+        // Initialize color picker after modal is shown
+        $('#colorPickerModal').off('shown.bs.modal.colorPicker').on('shown.bs.modal.colorPicker', function() {
+            initializeColorPicker();
+        });
+        
+        // Clean up when modal is hidden
+        $('#colorPickerModal').off('hidden.bs.modal.colorPicker').on('hidden.bs.modal.colorPicker', function() {
+            console.log('Modal hidden, cleaning up...');
+            // Hide both color picker instances
+            $('#textColorPicker').hide();
+            $('#backgroundColorPicker').hide();
+            
+            isUpdatingFromInputs = false;
+            detectedCurrentColor = null;
+            
+            // Clear any stored color state
+            $('#hexInput').val('');
+            $('#rgbInput').val('');
+            
+            // Restore cursor position after a short delay to ensure modal is fully closed
+            // Only restore if we still have a saved position (meaning modal was cancelled, not applied)
+            setTimeout(function() {
+                if (savedCursorPosition) {
+                    restoreCursorPosition();
+                }
+            }, 100);
+        });
+    }
+    
+    function initializeColorPicker() {
+        console.log('Initializing color picker for type:', currentColorType);
+        
+        // Hide both color picker instances first
+        $('#textColorPicker').hide();
+        $('#backgroundColorPicker').hide();
+        
+        // Clear input fields
+        $('#hexInput').val('');
+        $('#rgbInput').val('');
+        
+        // Use the pre-detected color from when the button was clicked
+        let currentColor = detectedCurrentColor;
+        console.log('=== INITIALIZATION ===');
+        console.log('Using pre-detected color:', currentColor);
+        console.log('Color type:', currentColorType);
+        
+        // Ensure we have a valid color before initializing
+        if (!currentColor) {
+            // Use a more appropriate default based on the color type
+            if (currentColorType === 'foreground') {
+                currentColor = '#000000'; // Black text is the most common default
+            } else {
+                currentColor = '#FFFFFF'; // White background is the most common default
+            }
+            console.log('No detected color, using default for', currentColorType, ':', currentColor);
+        } else {
+            console.log('Using detected color:', currentColor);
+        }
+        
+        // Convert to hex if it's RGB
+        if (currentColor.startsWith('rgb')) {
+            const convertedColor = rgbToHex(currentColor);
+            if (convertedColor) {
+                currentColor = convertedColor;
+                console.log('Converted RGB to hex:', currentColor);
+            } else {
+                currentColor = '#FF0000';
+                console.log('RGB conversion failed, using default:', currentColor);
+            }
+        }
+        
+        console.log('Final color for initialization:', currentColor);
+        
+        // Initialize the appropriate color picker instance
+        if (currentColorType === 'foreground') {
+            initializeTextColorPicker(currentColor);
+        } else {
+            initializeBackgroundColorPicker(currentColor);
+        }
+    }
+    
+    function initializeTextColorPicker(currentColor) {
+        console.log('Initializing text color picker with color:', currentColor);
+        
+        // Create or reuse text color picker instance
+        if (!textColorPickerInstance) {
+            textColorPickerInstance = new iro.ColorPicker('#textColorPicker', {
+                width: 280,
+                height: 280,
+                color: currentColor,
+                layout: [
+                    {
+                        component: iro.ui.Wheel,
+                        options: {}
+                    },
+                    {
+                        component: iro.ui.Slider,
+                        options: {
+                            sliderType: 'hue'
+                        }
+                    },
+                    {
+                        component: iro.ui.Slider,
+                        options: {
+                            sliderType: 'saturation'
+                        }
+                    },
+                    {
+                        component: iro.ui.Slider,
+                        options: {
+                            sliderType: 'value'
+                        }
+                    }
+                ]
+            });
+            
+            // Set up event listeners for text color picker
+            textColorPickerInstance.on('color:change', function(color) {
+                if (!isUpdatingFromInputs) {
+                    updateColorInputs(color);
+                }
+            });
+        } else {
+            // Update existing instance with new color
+            textColorPickerInstance.color.hexString = currentColor;
+        }
+        
+        // Show the text color picker and update inputs
+        $('#textColorPicker').show();
+        updateColorInputs(textColorPickerInstance.color);
+        
+        // Set up event handlers for this instance
+        setupColorPickerEventHandlers();
+        
+        console.log('Text color picker ready with color:', currentColor);
+    }
+    
+    function initializeBackgroundColorPicker(currentColor) {
+        console.log('Initializing background color picker with color:', currentColor);
+        
+        // Create or reuse background color picker instance
+        if (!backgroundColorPickerInstance) {
+            backgroundColorPickerInstance = new iro.ColorPicker('#backgroundColorPicker', {
+                width: 280,
+                height: 280,
+                color: currentColor,
+                layout: [
+                    {
+                        component: iro.ui.Wheel,
+                        options: {}
+                    },
+                    {
+                        component: iro.ui.Slider,
+                        options: {
+                            sliderType: 'hue'
+                        }
+                    },
+                    {
+                        component: iro.ui.Slider,
+                        options: {
+                            sliderType: 'saturation'
+                        }
+                    },
+                    {
+                        component: iro.ui.Slider,
+                        options: {
+                            sliderType: 'value'
+                        }
+                    }
+                ]
+            });
+            
+            // Set up event listeners for background color picker
+            backgroundColorPickerInstance.on('color:change', function(color) {
+                if (!isUpdatingFromInputs) {
+                    updateColorInputs(color);
+                }
+            });
+        } else {
+            // Update existing instance with new color
+            backgroundColorPickerInstance.color.hexString = currentColor;
+        }
+        
+        // Show the background color picker and update inputs
+        $('#backgroundColorPicker').show();
+        updateColorInputs(backgroundColorPickerInstance.color);
+        
+        // Set up event handlers for this instance
+        setupColorPickerEventHandlers();
+        
+        console.log('Background color picker ready with color:', currentColor);
+    }
+    
+    function getCurrentColorPickerInstance() {
+        if (currentColorType === 'foreground') {
+            return textColorPickerInstance;
+        } else {
+            return backgroundColorPickerInstance;
+        }
+    }
+    
+    function setupColorPickerEventHandlers() {
+        // Remove existing event listeners to prevent duplicates
+        $('#hexInput').off('input.colorPicker keyup.colorPicker');
+        $('#rgbInput').off('input.colorPicker keyup.colorPicker');
+        $('#applyColorBtn').off('click.colorPicker');
+        
+        // Update color picker when hex input changes
+        $('#hexInput').on('input.colorPicker keyup.colorPicker', function() {
+            const hexValue = $(this).val().trim();
+            console.log('Hex input changed:', hexValue, 'Valid:', isValidHex(hexValue));
+            if (isValidHex(hexValue)) {
+                isUpdatingFromInputs = true;
+                const currentInstance = getCurrentColorPickerInstance();
+                if (currentInstance) {
+                    currentInstance.color.hexString = hexValue;
+                    // Update RGB input to match
+                    $('#rgbInput').val(currentInstance.color.rgbString);
+                    console.log('Updated RGB to:', currentInstance.color.rgbString);
+                }
+                isUpdatingFromInputs = false;
+            }
+        });
+        
+        // Update color picker when RGB input changes
+        $('#rgbInput').on('input.colorPicker keyup.colorPicker', function() {
+            const rgbValue = $(this).val().trim();
+            console.log('RGB input changed:', rgbValue, 'Valid:', isValidRgb(rgbValue));
+            if (isValidRgb(rgbValue)) {
+                const hex = rgbToHex(rgbValue);
+                console.log('Converted to hex:', hex);
+                if (hex) {
+                    isUpdatingFromInputs = true;
+                    const currentInstance = getCurrentColorPickerInstance();
+                    if (currentInstance) {
+                        currentInstance.color.hexString = hex;
+                        // Update hex input to match
+                        $('#hexInput').val(currentInstance.color.hexString);
+                        console.log('Updated hex to:', currentInstance.color.hexString);
+                    }
+                    isUpdatingFromInputs = false;
+                }
+            }
+        });
+        
+        // Apply color when button is clicked
+        $('#applyColorBtn').on('click.colorPicker', function() {
+            const currentInstance = getCurrentColorPickerInstance();
+            if (currentInstance && currentInstance.color) {
+                // Clear saved cursor position since we're applying color
+                savedCursorPosition = null;
+                applyColorToSelection(currentInstance.color.hexString);
+                $('#colorPickerModal').modal('hide');
+            } else {
+                console.log('No color picker instance available for type:', currentColorType);
+            }
+        });
+    }
+    
+    function getCurrentColorFromSelection() {
+        const selection = window.getSelection();
+        console.log('Getting current color from selection, rangeCount:', selection.rangeCount, 'Type:', currentColorType);
+        
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            
+            // Start with the common ancestor container
+            let currentElement = range.commonAncestorContainer;
+            
+            // If it's a text node, get its parent element
+            if (currentElement.nodeType === Node.TEXT_NODE) {
+                currentElement = currentElement.parentElement;
+            }
+            
+            console.log('Starting element:', currentElement, 'Tag:', currentElement.tagName);
+            
+            // Walk up the DOM tree to find the closest element with a color
+            while (currentElement && currentElement !== document.body) {
+                let color = null;
+                
+                if (currentColorType === 'foreground') {
+                    // Check both style attribute and computed style
+                    color = currentElement.style.color || $(currentElement).css('color');
+                    console.log('Checking foreground color for element:', currentElement.tagName, 'Style:', currentElement.style.color, 'Computed:', $(currentElement).css('color'));
+                } else {
+                    // Check both style attribute and computed style
+                    color = currentElement.style.backgroundColor || $(currentElement).css('background-color');
+                    console.log('Checking background color for element:', currentElement.tagName, 'Style:', currentElement.style.backgroundColor, 'Computed:', $(currentElement).css('background-color'));
+                }
+                
+            // Check if this is a non-default color
+            if (currentColorType === 'foreground') {
+                const isDefaultColor = color === 'rgb(0, 0, 0)' || color === 'rgb(0,0,0)' || 
+                                     color === 'rgb(68, 68, 68)' || color === 'rgb(33, 37, 41)' ||
+                                     color === 'rgba(0, 0, 0, 0)' || color === 'inherit' || color === '';
+                console.log('Checking foreground color:', color, 'Is default?', isDefaultColor);
+                if (color && !isDefaultColor) {
+                    console.log('Found foreground color:', color);
+                    return color;
+                }
+            } else {
+                const isDefaultColor = color === 'rgba(0, 0, 0, 0)' || color === 'transparent' || 
+                                     color === 'rgba(0,0,0,0)' || color === 'inherit' || color === '';
+                console.log('Checking background color:', color, 'Is default?', isDefaultColor);
+                if (color && !isDefaultColor) {
+                    console.log('Found background color:', color);
+                    return color;
+                }
+            }
+                
+                // Move up to parent element
+                currentElement = currentElement.parentElement;
+            }
+        }
+        
+        console.log('No color found in selection, checking cursor position');
+        return getCurrentColorFromCursor();
+    }
+    
+    function getCurrentColorFromCursor() {
+        console.log('Getting current color from cursor position, Type:', currentColorType);
+        
+        // Get the current cursor position in the Summernote editor
+        const $editor = $('#summernote');
+        const editorElement = $editor[0];
+        
+        if (!editorElement) {
+            console.log('No editor element found');
+            return null;
+        }
+        
+        // Try to get the current paragraph or element at cursor position
+        let currentElement = null;
+        
+        // Method 1: Try to get from Summernote's internal selection
+        try {
+            const range = $editor.summernote('createRange');
+            if (range && range.startContainer) {
+                currentElement = range.startContainer.nodeType === Node.TEXT_NODE ? 
+                    range.startContainer.parentElement : range.startContainer;
+                console.log('Found element from Summernote range:', currentElement.tagName);
+            }
+        } catch (error) {
+            console.log('Could not get Summernote range:', error);
+        }
+        
+        // Method 2: Fallback to document selection
+        if (!currentElement) {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                currentElement = range.startContainer.nodeType === Node.TEXT_NODE ? 
+                    range.startContainer.parentElement : range.startContainer;
+                console.log('Found element from document selection:', currentElement.tagName);
+            }
+        }
+        
+        // Method 3: Fallback to the editor's current content
+        if (!currentElement) {
+            // Get the first paragraph or div in the editor
+            currentElement = editorElement.querySelector('p, div, span, h1, h2, h3, h4, h5, h6');
+            if (currentElement) {
+                console.log('Found element from editor content:', currentElement.tagName);
+            }
+        }
+        
+        if (!currentElement) {
+            console.log('No current element found');
+            return null;
+        }
+        
+        // First, try to find colored text elements near the cursor
+        const nearbyColoredElements = findNearbyColoredElements(currentElement, currentColorType);
+        if (nearbyColoredElements.length > 0) {
+            console.log('Found nearby colored elements:', nearbyColoredElements.length);
+            // Return the color from the closest colored element
+            const closestElement = nearbyColoredElements[0];
+            const color = currentColorType === 'foreground' ? 
+                (closestElement.style.color || $(closestElement).css('color')) :
+                (closestElement.style.backgroundColor || $(closestElement).css('background-color'));
+            console.log('Using color from nearby element:', color);
+            return color;
+        }
+        
+        // If no nearby colored elements, walk up the DOM tree to find the closest element with color styling
+        let element = currentElement;
+        while (element && element !== document.body) {
+            console.log('Checking cursor element:', element.tagName, element.className, element.id);
+            
+            let color = null;
+            
+            if (currentColorType === 'foreground') {
+                // Check both style attribute and computed style
+                color = element.style.color || $(element).css('color');
+                console.log('Checking foreground color for cursor element:', element.tagName, 'Style:', element.style.color, 'Computed:', $(element).css('color'));
+            } else {
+                // Check both style attribute and computed style
+                color = element.style.backgroundColor || $(element).css('background-color');
+                console.log('Checking background color for cursor element:', element.tagName, 'Style:', element.style.backgroundColor, 'Computed:', $(element).css('background-color'));
+            }
+            
+            // Check if this is a non-default color
+            if (currentColorType === 'foreground') {
+                const isDefaultColor = color === 'rgb(0, 0, 0)' || color === 'rgb(0,0,0)' || 
+                                     color === 'rgb(68, 68, 68)' || color === 'rgb(33, 37, 41)' ||
+                                     color === 'rgba(0, 0, 0, 0)' || color === 'inherit' || color === '';
+                console.log('Checking cursor foreground color:', color, 'Is default?', isDefaultColor);
+                if (color && !isDefaultColor) {
+                    console.log('Found foreground color at cursor:', color);
+                    return color;
+                }
+            } else {
+                const isDefaultColor = color === 'rgba(0, 0, 0, 0)' || color === 'transparent' || 
+                                     color === 'rgba(0,0,0,0)' || color === 'inherit' || color === '';
+                console.log('Checking cursor background color:', color, 'Is default?', isDefaultColor);
+                if (color && !isDefaultColor) {
+                    console.log('Found background color at cursor:', color);
+                    return color;
+                }
+            }
+            
+            element = element.parentElement;
+        }
+        
+        console.log('No color found at cursor position');
+        return null;
+    }
+    
+    function findNearbyColoredElements(currentElement, colorType) {
+        console.log('Looking for nearby colored elements...');
+        const coloredElements = [];
+        
+        // Get the editor container - try different selectors
+        let editorElement = $('#summernote .note-editable')[0];
+        if (!editorElement) {
+            editorElement = $('.note-editable')[0];
+        }
+        if (!editorElement) {
+            editorElement = $('#summernote [contenteditable="true"]')[0];
+        }
+        if (!editorElement) {
+            editorElement = $('[contenteditable="true"]')[0];
+        }
+        
+        console.log('Editor element for nearby search:', editorElement ? 'found' : 'not found');
+        if (!editorElement) return coloredElements;
+        
+        // Find all elements with explicit color styling
+        const allElements = editorElement.querySelectorAll('*');
+        console.log('Scanning', allElements.length, 'elements for colors...');
+        
+        for (let element of allElements) {
+            let color = null;
+            
+            if (colorType === 'foreground') {
+                // Check both inline style and computed style
+                color = element.style.color || $(element).css('color');
+            } else {
+                // Check both inline style and computed style
+                color = element.style.backgroundColor || $(element).css('background-color');
+            }
+            
+            // Check if this element has a non-default color
+            if (colorType === 'foreground') {
+                const isDefaultColor = color === 'rgb(0, 0, 0)' || color === 'rgb(0,0,0)' || 
+                                     color === 'rgb(68, 68, 68)' || color === 'rgb(33, 37, 41)' ||
+                                     color === 'rgba(0, 0, 0, 0)' || color === 'inherit' || color === '';
+                if (color && !isDefaultColor) {
+                    coloredElements.push(element);
+                    console.log('Found colored element:', element.tagName, 'Inline:', element.style.color, 'Computed:', $(element).css('color'), 'Final:', color);
+                }
+            } else {
+                const isDefaultColor = color === 'rgba(0, 0, 0, 0)' || color === 'transparent' || 
+                                     color === 'rgba(0,0,0,0)' || color === 'inherit' || color === '';
+                if (color && !isDefaultColor) {
+                    coloredElements.push(element);
+                    console.log('Found colored element:', element.tagName, 'Inline:', element.style.backgroundColor, 'Computed:', $(element).css('background-color'), 'Final:', color);
+                }
+            }
+        }
+        
+        console.log('Found', coloredElements.length, 'colored elements total');
+        
+        // Sort by proximity to current element (simple distance calculation)
+        coloredElements.sort((a, b) => {
+            const aDistance = getElementDistance(currentElement, a);
+            const bDistance = getElementDistance(currentElement, b);
+            return aDistance - bDistance;
+        });
+        
+        return coloredElements;
+    }
+    
+    function getElementDistance(element1, element2) {
+        // Simple distance calculation based on DOM position
+        // This is a basic implementation - could be improved
+        const rect1 = element1.getBoundingClientRect();
+        const rect2 = element2.getBoundingClientRect();
+        
+        const dx = rect1.left - rect2.left;
+        const dy = rect1.top - rect2.top;
+        
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    function updateColorInputs(color) {
+        if (!isUpdatingFromInputs) {
+            $('#hexInput').val(color.hexString);
+            $('#rgbInput').val(color.rgbString);
+        }
+    }
+    
+    function isValidHex(hex) {
+        return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
+    }
+    
+    function isValidRgb(rgb) {
+        // Handle both rgb() and rgba() formats, with flexible spacing
+        return /^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$/.test(rgb);
+    }
+    
+    function rgbToHex(rgb) {
+        // Handle both rgb() and rgba() formats
+        const match = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)$/);
+        if (match) {
+            const r = parseInt(match[1]);
+            const g = parseInt(match[2]);
+            const b = parseInt(match[3]);
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+        }
+        return null;
+    }
+    
+    function applyColorToSelection(color) {
+        console.log('Applying color:', color, 'Type:', currentColorType);
+        
+        // Ensure we have a valid color
+        if (!color || color === '') {
+            console.error('Invalid color provided');
+            return;
+        }
+        
+        // Check if we have a selection
+        const selection = window.getSelection();
+        const hasSelection = selection.rangeCount > 0 && selection.toString().trim() !== '';
+        
+        console.log('Has selection:', hasSelection, 'Selection text:', selection.toString());
+        
+        // Focus the editor first to ensure selection is active
+        $('#summernote').summernote('focus');
+        
+        // Small delay to ensure focus is set
+        setTimeout(function() {
+            try {
+                if (currentColorType === 'foreground') {
+                    // Apply text color
+                    $('#summernote').summernote('foreColor', color);
+                    console.log('Applied foreground color:', color);
+                } else {
+                    // Apply background color
+                    $('#summernote').summernote('backColor', color);
+                    console.log('Applied background color:', color);
+                }
+                
+                // Force a change event to update the editor
+                $('#summernote').summernote('triggerEvent', 'change');
+                
+                // Debug: Check what the editor content looks like after applying color
+                setTimeout(function() {
+                    // Try different selectors to find the editable area
+                    let $editable = $('#summernote .note-editable');
+                    if ($editable.length === 0) {
+                        $editable = $('.note-editable');
+                    }
+                    if ($editable.length === 0) {
+                        $editable = $('#summernote [contenteditable="true"]');
+                    }
+                    if ($editable.length === 0) {
+                        $editable = $('[contenteditable="true"]');
+                    }
+                    
+                    console.log('=== AFTER COLOR APPLICATION ===');
+                    console.log('Editor HTML after color:', $editable.html());
+                    console.log('Editor text after color:', $editable.text());
+                    
+                    const coloredElements = $editable.find('*[style*="color"]');
+                    console.log('Colored elements after application:', coloredElements.length);
+                    coloredElements.each(function(i, el) {
+                        console.log('Colored element', i, ':', el.tagName, el.style.color, el.textContent);
+                    });
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error applying color:', error);
+                
+                // Fallback: try using document.execCommand
+                try {
+                    if (currentColorType === 'foreground') {
+                        document.execCommand('foreColor', false, color);
+                    } else {
+                        document.execCommand('backColor', false, color);
+                    }
+                    console.log('Applied color using execCommand fallback');
+                } catch (fallbackError) {
+                    console.error('Fallback also failed:', fallbackError);
+                }
+            }
+        }, 50);
+    }
+
 });
