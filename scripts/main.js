@@ -1817,7 +1817,9 @@ $('#summernote').on('click', function(e) {
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             savedCursorPosition = selection.getRangeAt(0).cloneRange();
-            console.log('Saved cursor position');
+            console.log('Saved cursor position - rangeCount:', selection.rangeCount, 'text:', selection.toString());
+        } else {
+            console.log('No selection to save cursor position');
         }
     }
     
@@ -1826,17 +1828,16 @@ $('#summernote').on('click', function(e) {
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(savedCursorPosition);
-            console.log('Restored cursor position');
+            console.log('Restored cursor position - rangeCount:', selection.rangeCount, 'text:', selection.toString());
             savedCursorPosition = null;
+        } else {
+            console.log('No saved cursor position to restore');
         }
     }
     
     function showSpectrumColorPicker(colorType = 'foreground') {
         currentColorType = colorType;
         console.log('Opening color picker for type:', colorType);
-        
-        // Save the current cursor position before opening the modal
-        saveCursorPosition();
         
         // Check if we have a selection
         const selection = window.getSelection();
@@ -1846,6 +1847,9 @@ $('#summernote').on('click', function(e) {
             $('#summernote').summernote('focus');
             // Don't move cursor - let it stay where it is
         }
+        
+        // Save the current cursor position after focusing the editor
+        saveCursorPosition();
         
         // Debug: Log the current editor content
         console.log('=== EDITOR CONTENT DEBUG ===');
@@ -2097,8 +2101,8 @@ $('#summernote').on('click', function(e) {
     
     function setupColorPickerEventHandlers() {
         // Remove existing event listeners to prevent duplicates
-        $('#hexInput').off('input.colorPicker keyup.colorPicker');
-        $('#rgbInput').off('input.colorPicker keyup.colorPicker');
+        $('#hexInput').off('input.colorPicker keyup.colorPicker focus.colorPicker');
+        $('#rgbInput').off('input.colorPicker keyup.colorPicker focus.colorPicker');
         $('#applyColorBtn').off('click.colorPicker');
         
         // Update color picker when hex input changes
@@ -2139,12 +2143,37 @@ $('#summernote').on('click', function(e) {
             }
         });
         
+        // Save cursor position when input fields gain focus (only if not already saved)
+        $('#hexInput').on('focus.colorPicker', function() {
+            if (!savedCursorPosition) {
+                saveCursorPosition();
+                console.log('Saved cursor position when hex input focused');
+            }
+        });
+        
+        $('#rgbInput').on('focus.colorPicker', function() {
+            if (!savedCursorPosition) {
+                saveCursorPosition();
+                console.log('Saved cursor position when RGB input focused');
+            }
+        });
+        
+        // Monitor for any focus changes that might affect cursor position
+        $(document).on('focus.colorPicker', function(e) {
+            // If focus moves to color picker components, ensure we have cursor position saved
+            if ($(e.target).closest('#colorPickerModal').length > 0) {
+                if (!savedCursorPosition) {
+                    saveCursorPosition();
+                    console.log('Saved cursor position due to focus change in color picker modal');
+                }
+            }
+        });
+        
         // Apply color when button is clicked
         $('#applyColorBtn').on('click.colorPicker', function() {
             const currentInstance = getCurrentColorPickerInstance();
             if (currentInstance && currentInstance.color) {
-                // Clear saved cursor position since we're applying color
-                savedCursorPosition = null;
+                console.log('Applying color:', currentInstance.color.hexString, 'Saved cursor position exists:', !!savedCursorPosition);
                 applyColorToSelection(currentInstance.color.hexString);
                 $('#colorPickerModal').modal('hide');
             } else {
@@ -2434,6 +2463,11 @@ $('#summernote').on('click', function(e) {
         if (!color || color === '') {
             console.error('Invalid color provided');
             return;
+        }
+        
+        // Restore cursor position first if we have one saved
+        if (savedCursorPosition) {
+            restoreCursorPosition();
         }
         
         // Check if we have a selection
