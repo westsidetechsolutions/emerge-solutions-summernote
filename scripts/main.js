@@ -118,8 +118,14 @@ $(document).ready(function() {
         // Get the current HTML content from the editor
         var htmlContent = $('#summernote').summernote('code');
         
+        // Clean up resize handles and other UI elements before showing code
+        var cleanHtml = cleanHtmlForCodeView(htmlContent);
+        
+        // Format the HTML content using js-beautify
+        var formattedHtml = formatHtml(cleanHtml);
+        
         // Set the content to the code editor in the modal
-        $('#codeViewTextarea').val(htmlContent);
+        $('#codeViewTextarea').val(formattedHtml);
         
         // Show the modal first
         $('#codeViewModal').modal('show');
@@ -127,7 +133,7 @@ $(document).ready(function() {
         // Initialize or refresh CodeMirror after the modal is visible
         $('#codeViewModal').on('shown.bs.modal', function() {
             if (window.codeViewCodeMirror) {
-                window.codeViewCodeMirror.setValue(htmlContent);
+                window.codeViewCodeMirror.setValue(formattedHtml);
                 window.codeViewCodeMirror.refresh();
             } else {
                 window.codeViewCodeMirror = CodeMirror.fromTextArea(
@@ -140,7 +146,10 @@ $(document).ready(function() {
                         matchBrackets: true,
                         autoCloseTags: true,
                         autoCloseBrackets: true,
-                        styleActiveLine: true
+                        styleActiveLine: true,
+                        indentUnit: 2,
+                        tabSize: 2,
+                        indentWithTabs: false
                     }
                 );
             }
@@ -149,6 +158,67 @@ $(document).ready(function() {
                 window.codeViewCodeMirror.refresh();
             }, 10);
         });
+    }
+    
+    // Function to clean HTML for code view by removing UI elements
+    function cleanHtmlForCodeView(html) {
+        // Create a temporary DOM element to parse and clean the HTML
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Remove resize handles and containers
+        var resizeContainers = tempDiv.querySelectorAll('.table-resize-container');
+        resizeContainers.forEach(function(container) {
+            container.remove();
+        });
+        
+        var resizeHandles = tempDiv.querySelectorAll('.column-resize-handle');
+        resizeHandles.forEach(function(handle) {
+            handle.remove();
+        });
+        
+        // Remove UI classes from tables
+        var tables = tempDiv.querySelectorAll('table');
+        tables.forEach(function(table) {
+            table.classList.remove('resizable-added');
+            table.style.position = '';
+        });
+        
+        // Return the cleaned HTML
+        return tempDiv.innerHTML;
+    }
+    
+    // Function to format HTML using js-beautify
+    function formatHtml(html) {
+        if (typeof html_beautify === 'undefined') {
+            console.warn('js-beautify not available, returning unformatted HTML');
+            return html;
+        }
+        
+        try {
+            return html_beautify(html, {
+                indent_size: 2,
+                indent_char: ' ',
+                max_preserve_newlines: 2,
+                preserve_newlines: true,
+                keep_array_indentation: false,
+                break_chained_methods: false,
+                indent_scripts: 'normal',
+                brace_style: 'collapse',
+                space_before_conditional: true,
+                unescape_strings: false,
+                jslint_happy: false,
+                end_with_newline: true,
+                wrap_line_length: 0,
+                indent_inner_html: true,
+                comma_first: false,
+                e4x: false,
+                indent_empty_lines: false
+            });
+        } catch (error) {
+            console.error('Error formatting HTML:', error);
+            return html;
+        }
     }
 
     // Function to show the edit image modal
@@ -1059,9 +1129,14 @@ $('#summernote').on('click', function(e) {
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">HTML Code View</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="formatCodeBtn" title="Format HTML">
+                            <i class="fas fa-code"></i> Format
+                        </button>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <textarea id="codeViewTextarea" style="width: 100%; height: 400px;"></textarea>
@@ -1326,6 +1401,40 @@ $('#summernote').on('click', function(e) {
         
         // Close the modal
         $('#codeViewModal').modal('hide');
+    });
+    
+    // Handle formatting code when the Format button is clicked
+    $('#formatCodeBtn').click(function() {
+        // Get the current code from CodeMirror or the textarea
+        let currentCode;
+        if (window.codeViewCodeMirror) {
+            currentCode = window.codeViewCodeMirror.getValue();
+        } else {
+            currentCode = $('#codeViewTextarea').val();
+        }
+        
+        // Clean the code first (remove UI elements)
+        let cleanCode = cleanHtmlForCodeView(currentCode);
+        
+        // Format the code
+        let formattedCode = formatHtml(cleanCode);
+        
+        // Update the CodeMirror editor with formatted code
+        if (window.codeViewCodeMirror) {
+            window.codeViewCodeMirror.setValue(formattedCode);
+            window.codeViewCodeMirror.refresh();
+        } else {
+            $('#codeViewTextarea').val(formattedCode);
+        }
+        
+        // Show a brief success message
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.html('<i class="fas fa-check"></i> Formatted').addClass('btn-success').removeClass('btn-outline-secondary');
+        
+        setTimeout(function() {
+            $btn.html(originalText).removeClass('btn-success').addClass('btn-outline-secondary');
+        }, 1500);
     });
 
     // Handle applying image edits when the Apply button is clicked

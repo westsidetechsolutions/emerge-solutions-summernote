@@ -805,6 +805,37 @@ body {
     background: linear-gradient(135deg, transparent 50%, #999 50%);
 }
 
+/* Code View Modal Format Button */
+#formatCodeBtn {
+    transition: all 0.3s ease;
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+#formatCodeBtn:hover {
+    background-color: #6c757d;
+    color: white;
+    border-color: #6c757d;
+}
+
+#formatCodeBtn.btn-success {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+}
+
+/* Code View Modal Header Styling */
+#codeViewModal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#codeViewModal .modal-header .btn-group {
+    display: flex;
+    align-items: center;
+}
+
 #codeViewModal .modal-dialog {
     transition: none;
 }
