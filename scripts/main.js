@@ -4,6 +4,9 @@ $(document).ready(function() {
     
     // Initialize Asset Manager Module
     AssetManager.init();
+    
+    // Initialize Table Manager Module
+    TableManager.init();
 
     var AssetManagerButton = function (context) {
         var ui = $.summernote.ui;
@@ -500,9 +503,10 @@ $(document).ready(function() {
     };
 
     // Initialize Summernote
+    const tableConfig = TableManager.getSummernoteConfig();
     $('#summernote').summernote({
         disableDragAndDrop: true,
-        tableClassName: 'summernote-table',
+        tableClassName: tableConfig.tableClassName,
         buttons: {
             assetManager: AssetManagerButton,
             linkCustom: LinkButton,
@@ -562,11 +566,7 @@ $(document).ready(function() {
             link: [
                 ['link', ['linkDialogShow', 'unlink']]
             ],
-            table: [
-                ['add', ['addRowDown', 'addRowUp', 'addColLeft', 'addColRight']],
-                ['delete', ['deleteRow', 'deleteCol', 'deleteTable']],
-                ['color', ['cellBackgroundColor']]
-            ],
+            table: tableConfig.table,
             video: [
                 ['videosize', ['videoSize100', 'videoSize75', 'videoSize50']],
                 ['float', ['floatLeft', 'floatRight', 'floatNone']],
@@ -599,8 +599,7 @@ $(document).ready(function() {
             onInit: function() {
                 setTimeout(function() {
                     // Clean up any existing tables and make them resizable
-                    cleanupTableStyles();
-                    makeTablesResizable();
+                    TableManager.onContentChange();
                     makeVideosResizable();
                 }, 100);
 
@@ -663,8 +662,7 @@ $(document).ready(function() {
             onChange: function(contents, $editable) {
                 // When content changes, check for new elements and make them resizable
                 // Also clean up any tables with inline styles
-                cleanupTableStyles();
-                makeTablesResizable();
+                TableManager.onContentChange();
                 makeVideosResizable();
             },
             onKeyup: function(e) {
@@ -844,185 +842,6 @@ $('#summernote').on('click', function(e) {
         });
     }
 
-    // Function to clean up tables with inline styles and convert to CSS classes
-    function cleanupTableStyles() {
-        const $editor = $('.note-editable');
-        
-        // Find all tables in the editor
-        $editor.find('table').each(function() {
-            const $table = $(this);
-            
-            // Add the summernote-table class if not already present
-            if (!$table.hasClass('summernote-table')) {
-                $table.addClass('summernote-table');
-            }
-            
-            // Remove inline styles from table elements
-            $table.removeAttr('style');
-            $table.find('th, td').each(function() {
-                const $cell = $(this);
-                const cellStyle = $cell.attr('style');
-                
-                if (cellStyle) {
-                    // Parse the style attribute to extract useful information
-                    const styles = {};
-                    cellStyle.split(';').forEach(function(style) {
-                        const [property, value] = style.split(':').map(s => s.trim());
-                        if (property && value) {
-                            styles[property] = value;
-                        }
-                    });
-                    
-                    // Convert common inline styles to CSS classes
-                    if (styles['text-align']) {
-                        switch (styles['text-align']) {
-                            case 'left':
-                                $cell.addClass('text-left');
-                                break;
-                            case 'center':
-                                $cell.addClass('text-center');
-                                break;
-                            case 'right':
-                                $cell.addClass('text-right');
-                                break;
-                            case 'justify':
-                                $cell.addClass('text-justify');
-                                break;
-                        }
-                    }
-                    
-                    if (styles['vertical-align']) {
-                        switch (styles['vertical-align']) {
-                            case 'top':
-                                $cell.addClass('align-top');
-                                break;
-                            case 'middle':
-                                $cell.addClass('align-middle');
-                                break;
-                            case 'bottom':
-                                $cell.addClass('align-bottom');
-                                break;
-                        }
-                    }
-                    
-                    // Remove the inline style attribute
-                    $cell.removeAttr('style');
-                }
-            });
-        });
-    }
-
-    // Function to make table columns resizable
-    function makeTablesResizable() {
-        const $editor = $('.note-editable');
-        
-        // First, clean up any existing table styles
-        cleanupTableStyles();
-        
-        // Find all tables in the editor
-        $editor.find('table').each(function() {
-            const $table = $(this);
-            
-            // Skip if already processed
-            if ($table.hasClass('resizable-added')) return;
-            
-            // Mark as processed
-            $table.addClass('resizable-added');
-            
-            // Create column resize handles for the entire table
-            const $headerRow = $table.find('tr:first');
-            const columnCount = $headerRow.find('th, td').length;
-            
-            // Create a container for the resize handles
-            const $resizeContainer = $('<div class="table-resize-container"></div>').css({
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none'
-            });
-            
-            // Position the table relatively to allow absolute positioning of handles
-            $table.css('position', 'relative').append($resizeContainer);
-            
-            // Add resize handles between columns
-            for (let i = 0; i < columnCount - 1; i++) {
-                const cells = $table.find(`tr td:nth-child(${i + 1}), tr th:nth-child(${i + 1})`);
-                if (cells.length === 0) continue;
-                
-                // Calculate position for the resize handle
-                const lastCell = cells.last();
-                const cellRight = cells.first().position().left + cells.first().outerWidth();
-                
-                // Create the resize handle that spans the entire height of the table
-                const $resizeHandle = $('<div class="column-resize-handle"></div>').css({
-                    position: 'absolute',
-                    top: 0,
-                    left: cellRight - 3,
-                    width: '6px',
-                    height: '100%',
-                    cursor: 'col-resize',
-                    pointerEvents: 'auto',
-                    zIndex: 1
-                });
-                
-                $resizeContainer.append($resizeHandle);
-                
-                // Add event listener for resize handle
-                $resizeHandle.on('mousedown', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const startX = e.pageX;
-                    const columnCells = $table.find(`tr td:nth-child(${i + 1}), tr th:nth-child(${i + 1})`);
-                    const nextColumnCells = $table.find(`tr td:nth-child(${i + 2}), tr th:nth-child(${i + 2})`);
-                    const startWidth = columnCells.first().outerWidth();
-                    const tableWidth = $table.width();
-                    
-                    // Add overlay to capture mouse events
-                    const $overlay = $('<div class="resize-overlay"></div>').css({
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        cursor: 'col-resize',
-                        zIndex: 9999
-                    }).appendTo('body');
-                    
-                    $overlay.on('mousemove', function(e) {
-                        const diffX = e.pageX - startX;
-                        const newWidth = Math.max(20, startWidth + diffX);
-                        
-                        // Set width for all cells in this column
-                        columnCells.width(newWidth);
-                        
-                        // Update the position of this and all subsequent resize handles
-                        updateResizeHandlePositions($table);
-                    });
-                    
-                    $overlay.on('mouseup', function() {
-                        $overlay.remove();
-                    });
-                });
-            }
-        });
-    }
-    
-    // Function to update resize handle positions after resizing
-    function updateResizeHandlePositions($table) {
-        const $handles = $table.find('.column-resize-handle');
-        const $headerRow = $table.find('tr:first');
-        
-        $headerRow.find('th, td').each(function(index, cell) {
-            if (index < $handles.length) {
-                const $cell = $(cell);
-                const cellRight = $cell.position().left + $cell.outerWidth();
-                $($handles[index]).css('left', cellRight - 3);
-            }
-        });
-    }
 
     // Function to make videos and iframes resizable
     function makeVideosResizable() {
