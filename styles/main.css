@@ -488,6 +488,120 @@ body {
     overflow: hidden;
 }
 
+/* Summernote Table Styling - Replace inline styles with CSS classes */
+.note-editable .summernote-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+    margin: 10px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.note-editable .summernote-table th,
+.note-editable .summernote-table td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+    min-width: 50px;
+}
+
+.note-editable .summernote-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    color: #495057;
+}
+
+.note-editable .summernote-table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.note-editable .summernote-table tr:hover {
+    background-color: #e9ecef;
+}
+
+/* Table cell alignment classes */
+.note-editable .summernote-table .text-left {
+    text-align: left;
+}
+
+.note-editable .summernote-table .text-center {
+    text-align: center;
+}
+
+.note-editable .summernote-table .text-right {
+    text-align: right;
+}
+
+.note-editable .summernote-table .text-justify {
+    text-align: justify;
+}
+
+/* Table cell vertical alignment */
+.note-editable .summernote-table .align-top {
+    vertical-align: top;
+}
+
+.note-editable .summernote-table .align-middle {
+    vertical-align: middle;
+}
+
+.note-editable .summernote-table .align-bottom {
+    vertical-align: bottom;
+}
+
+/* Table width classes */
+.note-editable .summernote-table.table-auto {
+    width: auto;
+}
+
+.note-editable .summernote-table.table-50 {
+    width: 50%;
+}
+
+.note-editable .summernote-table.table-75 {
+    width: 75%;
+}
+
+.note-editable .summernote-table.table-100 {
+    width: 100%;
+}
+
+/* Table border styles */
+.note-editable .summernote-table.table-borderless th,
+.note-editable .summernote-table.table-borderless td {
+    border: none;
+}
+
+.note-editable .summernote-table.table-bordered th,
+.note-editable .summernote-table.table-bordered td {
+    border: 1px solid #ddd;
+}
+
+.note-editable .summernote-table.table-striped tr:nth-child(odd) {
+    background-color: #fff;
+}
+
+.note-editable .summernote-table.table-striped tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Table hover effects */
+.note-editable .summernote-table.table-hover tbody tr:hover {
+    background-color: #e9ecef;
+}
+
+/* Responsive table wrapper */
+.note-editable .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.note-editable .table-responsive .summernote-table {
+    margin-bottom: 0;
+}
+
 .video-wrapper {
     position: relative;
     display: inline-block;
