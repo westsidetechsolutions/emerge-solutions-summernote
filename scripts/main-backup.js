@@ -2,11 +2,405 @@ $(document).ready(function() {
     // Flag to prevent "no image selected" errors during operations
     var isImageLinkOperationInProgress = false;
     
-    // Initialize Asset Manager Module
-    AssetManager.init();
-    
-    // Initialize Table Manager Module
-    TableManager.init();
+    // Initialize Asset Manager
+    const assetStore = {
+        root: {
+            name: 'Root',
+            type: 'folder',
+            children: []
+        },
+        currentPath: ['root'],
+        
+        // Add these methods for session storage
+        saveToSessionStorage: function() {
+            try {
+                // Convert any large binary data to references to avoid session storage limits
+                const storableData = this.prepareForStorage(JSON.parse(JSON.stringify(this.root)));
+                
+                // Store the processed data structure
+                sessionStorage.setItem('assetManagerRoot', JSON.stringify(storableData));
+                
+                // Store the current path separately
+                sessionStorage.setItem('assetManagerCurrentPath', JSON.stringify(this.currentPath));
+            } catch(e) {
+                console.error('Failed to save to session storage:', e);
+            }
+        },
+        
+        loadFromSessionStorage: function() {
+            try {
+                // Load the root structure
+                const rootData = sessionStorage.getItem('assetManagerRoot');
+                if (rootData) {
+                    const parsedRoot = JSON.parse(rootData);
+                    // Restore any binary data from separate storage
+                    this.root = this.restoreFromStorage(parsedRoot);
+                }
+                
+                // Load the current path
+                const pathData = sessionStorage.getItem('assetManagerCurrentPath');
+                if (pathData) {
+                    this.currentPath = JSON.parse(pathData);
+                }
+                
+                return !!rootData; // Return true if we loaded data
+            } catch(e) {
+                console.error('Failed to load from session storage:', e);
+                return false;
+            }
+        },
+        
+        prepareForStorage: function(dataObj) {
+            // Make a deep copy we can modify
+            const processedObj = {...dataObj};
+            
+            if (processedObj.children) {
+                // Process each child
+                processedObj.children = processedObj.children.map(child => {
+                    if (child.type === 'folder') {
+                        // Recursively process folder children
+                        return this.prepareForStorage(child);
+                    } else if (child.type === 'file' && child.data && child.data.length > 50000) {
+                        // For large files, store data separately to avoid session storage limits
+                        const storageKey = 'asset_file_' + child.id;
+                        try {
+                            sessionStorage.setItem(storageKey, child.data);
+                            // Replace actual data with reference
+                            const storedChild = {...child};
+                            storedChild.data = null; // Clear the data
+                            storedChild.dataRef = storageKey; // Save reference to where data is stored
+                            return storedChild;
+                        } catch(e) {
+                            console.error('Failed to store large file data:', e);
+                            // Return child with shortened data if we couldn't store it separately
+                            const fallbackChild = {...child};
+                            fallbackChild.data = fallbackChild.data.substring(0, 100) + '... [truncated due to storage limits]';
+                            return fallbackChild;
+                        }
+                    } else {
+                        // Return file as is if it's small enough
+                        return child;
+                    }
+                });
+            }
+            
+            return processedObj;
+        },
+        
+        restoreFromStorage: function(dataObj) {
+            const restoredObj = {...dataObj};
+            
+            if (restoredObj.children) {
+                // Process each child to restore data
+                restoredObj.children = restoredObj.children.map(child => {
+                    if (child.type === 'folder') {
+                        // Recursively restore folder children
+                        return this.restoreFromStorage(child);
+                    } else if (child.type === 'file' && child.dataRef) {
+                        // For files with external data reference, restore the data
+                        try {
+                            const storedData = sessionStorage.getItem(child.dataRef);
+                            const restoredChild = {...child};
+                            
+                            if (storedData) {
+                                restoredChild.data = storedData;
+                            } else {
+                                console.warn('Could not find stored data for:', child.name);
+                                restoredChild.data = ''; // Provide empty data if we couldn't restore
+                            }
+                            
+                            delete restoredChild.dataRef; // Remove the reference
+                            return restoredChild;
+                        } catch(e) {
+                            console.error('Failed to restore file data:', e);
+                            return child;
+                        }
+                    } else {
+                        // Return file as is
+                        return child;
+                    }
+                });
+            }
+            
+            return restoredObj;
+        },
+        
+        getCurrentFolder: function() {
+            let current = this.root;
+            for (let i = 1; i < this.currentPath.length; i++) {
+                current = current.children.find(
+                    item => item.id === this.currentPath[i]
+                );
+            }
+            return current;
+        },
+        
+        addFolder: function(name) {
+            const folder = {
+                id: Date.now().toString(),
+                name: name,
+                type: 'folder',
+                children: []
+            };
+            this.getCurrentFolder().children.push(folder);
+            this.saveToSessionStorage(); // Save after making changes
+            this.renderTree();
+        },
+        
+        addFile: function(file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const fileData = {
+                    id: Date.now().toString(),
+                    name: file.name,
+                    type: 'file',
+                    data: reader.result,
+                    mimeType: file.type
+                };
+                this.getCurrentFolder().children.push(fileData);
+                this.saveToSessionStorage(); // Save after making changes
+                this.renderTree();
+            };
+            reader.readAsDataURL(file);
+        },
+        
+        renderTree: function() {
+            // Update current path display
+            const pathParts = [];
+            for (let i = 0; i < this.currentPath.length; i++) {
+                if (i === 0) {
+                    pathParts.push('Root');
+                } else {
+                    let current = this.root;
+                    for (let j = 1; j <= i; j++) {
+                        const pathId = this.currentPath[j];
+                        current = current.children.find(item => item.id === pathId);
+                        if (!current) break;
+                    }
+                    if (current) pathParts.push(current.name);
+                }
+            }
+            const pathDisplay = pathParts.join(' / ');
+            
+            $('#currentPath').text(pathDisplay);
+            
+            // Render list view
+            const renderListItem = (item) => {
+                const li = $('<li>')
+                    .addClass(item.type)
+                    .attr('data-id', item.id);
+                
+                // Create container for the item name and delete button
+                const itemContainer = $('<div>').addClass('item-container');
+                
+                // Add the appropriate icon and name
+                if (item.type === 'folder') {
+                    itemContainer.append('<i class="fas fa-folder"></i> ');
+                    itemContainer.append($('<span>').text(item.name));
+                    
+                    li.append(itemContainer);
+                    li.on('dblclick', () => {
+                        this.navigateToFolder(item.id);
+                    });
+                } else {
+                    itemContainer.append('<i class="fas fa-file"></i> ');
+                    itemContainer.append($('<span>').text(item.name));
+                    
+                    li.append(itemContainer);
+                }
+                
+                // Add delete button
+                const deleteBtn = $('<button>')
+                    .addClass('btn btn-sm btn-danger delete-btn')
+                    .html('<i class="fas fa-trash"></i>')
+                    .attr('title', 'Delete')
+                    .on('click', (e) => {
+                        e.stopPropagation(); // Prevent triggering other click events
+                        
+                        if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                            this.deleteItem(item.id);
+                        }
+                    });
+                
+                li.append(deleteBtn);
+                
+                return li;
+            };
+            
+            const tree = $('#assetTree').empty();
+            if (this.currentPath.length > 1) {
+                tree.append(
+                    $('<li>')
+                        .addClass('folder up')
+                        .html('<i class="fas fa-level-up-alt"></i> ..')
+                        .on('click', () => {
+                            this.navigateToFolder('back');
+                        })
+                );
+            }
+            
+            // Render grid view
+            const grid = $('#assetGrid').empty();
+            
+            // Add back folder in grid view
+            if (this.currentPath.length > 1) {
+                const backFolder = $('<div>')
+                    .addClass('asset-item folder')
+                    .attr('data-id', 'back')
+                    .on('click', () => {
+                        this.navigateToFolder('back');
+                    });
+                
+                const thumbnail = $('<div>').addClass('asset-thumbnail');
+                thumbnail.append('<i class="fas fa-level-up-alt"></i>');
+                
+                const name = $('<div>').addClass('asset-name').text('..');
+                
+                backFolder.append(thumbnail).append(name);
+                grid.append(backFolder);
+            }
+            
+            // Add folders and files
+            this.getCurrentFolder().children.forEach(item => {
+                // Add to list view
+                tree.append(renderListItem(item));
+                
+                // Add to grid view
+                const gridItem = $('<div>')
+                    .addClass('asset-item')
+                    .addClass(item.type)
+                    .attr('data-id', item.id);
+                
+                const thumbnail = $('<div>').addClass('asset-thumbnail');
+                
+                if (item.type === 'folder') {
+                    thumbnail.append('<i class="fas fa-folder"></i>');
+                    gridItem.on('dblclick', () => {
+                        this.navigateToFolder(item.id);
+                    });
+                } else if (item.mimeType && item.mimeType.startsWith('image/')) {
+                    thumbnail.append($('<img>').attr('src', item.data));
+                } else {
+                    thumbnail.append('<i class="fas fa-file"></i>');
+                }
+                
+                const name = $('<div>').addClass('asset-name').text(item.name);
+                
+                // Add delete button for grid items
+                const deleteBtn = $('<button>')
+                    .addClass('btn btn-sm btn-danger delete-btn grid-delete-btn')
+                    .html('<i class="fas fa-trash"></i>')
+                    .attr('title', 'Delete')
+                    .on('click', (e) => {
+                        e.stopPropagation(); // Prevent triggering selection
+                        
+                        if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                            this.deleteItem(item.id);
+                        }
+                    });
+                
+                gridItem.append(thumbnail).append(name).append(deleteBtn);
+                grid.append(gridItem);
+            });
+            
+            // Show the active view
+            if ($('#gridViewBtn').hasClass('active')) {
+                $('#assetTree').hide();
+                $('#assetGrid').show();
+            } else {
+                $('#assetGrid').hide();
+                $('#assetTree').show();
+            }
+        },
+        
+        // Add this new method to update currentPath and save to storage
+        navigateToFolder: function(folderId) {
+            if (folderId === 'back' || folderId === 'up') {
+                this.currentPath.pop(); // Go up one level
+            } else {
+                this.currentPath.push(folderId); // Go into the folder
+            }
+            this.saveToSessionStorage(); // Save the navigation state
+            this.renderTree();
+        },
+        
+        deleteItem: function(itemId) {
+            // Find the parent folder containing the item
+            let currentFolder = this.getCurrentFolder();
+            
+            // Find the item index in the current folder's children
+            const itemIndex = currentFolder.children.findIndex(
+                child => String(child.id) === String(itemId)
+            );
+            
+            if (itemIndex !== -1) {
+                const item = currentFolder.children[itemIndex];
+                
+                // Check if it's a folder and not empty
+                if (item.type === 'folder' && item.children && item.children.length > 0) {
+                    alert('Cannot delete non-empty folder. Please delete its contents first.');
+                    return false;
+                }
+                
+                // Remove the item from the array
+                currentFolder.children.splice(itemIndex, 1);
+                
+                // If the item is a file with a dataRef, clean up session storage
+                if (item.type === 'file' && item.dataRef) {
+                    try {
+                        sessionStorage.removeItem(item.dataRef);
+                    } catch(e) {
+                        console.error('Failed to remove file data from session storage:', e);
+                    }
+                }
+                
+                // Save changes to session storage
+                this.saveToSessionStorage();
+                // Refresh the display
+                this.renderTree();
+                return true;
+            }
+            
+            return false;
+        },
+        clearAll: function() {
+            // Reset the root folder to empty
+            this.root = {
+                name: 'Root',
+                type: 'folder',
+                children: []
+            };
+            
+            // Reset navigation to root
+            this.currentPath = ['root'];
+            
+            // Clear all asset-related items from session storage
+            try {
+                // Clear the main asset structure
+                sessionStorage.removeItem('assetManagerRoot');
+                sessionStorage.removeItem('assetManagerCurrentPath');
+                
+                // Find and clear all asset file data entries
+                const keysToRemove = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && key.startsWith('asset_file_')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                // Remove each asset file entry
+                keysToRemove.forEach(key => {
+                    sessionStorage.removeItem(key);
+                });
+            } catch(e) {
+                console.error('Error clearing asset manager:', e);
+            }
+            
+            // Update the UI
+            this.renderTree();
+        }
+    };
 
     var AssetManagerButton = function (context) {
         var ui = $.summernote.ui;
@@ -61,16 +455,10 @@ $(document).ready(function() {
                         }
                     }
                     
-                    // Also check if the selection is within an image or its container
+                    // Also check if the selection is within an image
                     var imgParent = $(commonAncestor).closest('img');
                     if (imgParent.length > 0) {
                         target = imgParent[0];
-                    }
-                    
-                    // Check if the selection is within a container that has an image (for floated images)
-                    var containerWithImg = $(commonAncestor).closest('div, p, span').find('img');
-                    if (containerWithImg.length > 0) {
-                        target = containerWithImg[0];
                     }
                 }
                 
@@ -79,36 +467,21 @@ $(document).ready(function() {
                     target = $('#summernote').summernote('restoreTarget');
                 }
                 
-                // Additional fallback: check if the current selection is near an image
-                if (!target && selection.rangeCount > 0) {
-                    var range = selection.getRangeAt(0);
-                    var startContainer = range.startContainer;
-                    var endContainer = range.endContainer;
-                    
-                    // Check if we're adjacent to an image
-                    var $startContainer = $(startContainer);
-                    var $endContainer = $(endContainer);
-                    
-                    // Look for images in the same container or adjacent containers
-                    var nearbyImg = $startContainer.find('img').add($endContainer.find('img'))
-                        .add($startContainer.siblings('img')).add($endContainer.siblings('img'))
-                        .add($startContainer.parent().find('img')).add($endContainer.parent().find('img'));
-                    
-                    if (nearbyImg.length > 0) {
-                        target = nearbyImg[0];
-                    }
-                }
+                // Debug logging
+                console.log('LinkButton: target found:', target);
+                console.log('LinkButton: target tagName:', target ? target.tagName : 'none');
                 
-                // Simple check: if target is an image, show image modal, otherwise show text modal
                 if (target && (target.tagName === 'IMG' || (target.tagName === 'A' && target.querySelector('img')))) {
-                    // Image is selected, show image link options
+                    // Image is selected (either directly or wrapped in a link), show image link options
+                    console.log('LinkButton: showing image link modal');
                     showImageLinkModal(target);
-                    } else {
+                } else {
                     // Text is selected or nothing selected, show regular link options
                     // Store the selection in the modal's data for later use
                     $('#linkOptionsModal').data('selectionRange', selectionRange);
                     $('#linkOptionsModal').data('hasSelection', hasSelection);
                     
+                    console.log('LinkButton: showing text link options modal');
                     $('#linkOptionsModal').modal('show');
                 }
             }
@@ -139,14 +512,8 @@ $(document).ready(function() {
         // Get the current HTML content from the editor
         var htmlContent = $('#summernote').summernote('code');
         
-        // Clean up resize handles and other UI elements before showing code
-        var cleanHtml = cleanHtmlForCodeView(htmlContent);
-        
-        // Format the HTML content using js-beautify
-        var formattedHtml = formatHtml(cleanHtml);
-        
         // Set the content to the code editor in the modal
-        $('#codeViewTextarea').val(formattedHtml);
+        $('#codeViewTextarea').val(htmlContent);
         
         // Show the modal first
         $('#codeViewModal').modal('show');
@@ -154,9 +521,9 @@ $(document).ready(function() {
         // Initialize or refresh CodeMirror after the modal is visible
         $('#codeViewModal').on('shown.bs.modal', function() {
             if (window.codeViewCodeMirror) {
-                window.codeViewCodeMirror.setValue(formattedHtml);
+                window.codeViewCodeMirror.setValue(htmlContent);
                 window.codeViewCodeMirror.refresh();
-                } else {
+            } else {
                 window.codeViewCodeMirror = CodeMirror.fromTextArea(
                     document.getElementById('codeViewTextarea'), 
                     {
@@ -167,10 +534,7 @@ $(document).ready(function() {
                         matchBrackets: true,
                         autoCloseTags: true,
                         autoCloseBrackets: true,
-                        styleActiveLine: true,
-                        indentUnit: 2,
-                        tabSize: 2,
-                        indentWithTabs: false
+                        styleActiveLine: true
                     }
                 );
             }
@@ -179,67 +543,6 @@ $(document).ready(function() {
                 window.codeViewCodeMirror.refresh();
             }, 10);
         });
-    }
-    
-    // Function to clean HTML for code view by removing UI elements
-    function cleanHtmlForCodeView(html) {
-        // Create a temporary DOM element to parse and clean the HTML
-        var tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        
-        // Remove resize handles and containers
-        var resizeContainers = tempDiv.querySelectorAll('.table-resize-container');
-        resizeContainers.forEach(function(container) {
-            container.remove();
-        });
-        
-        var resizeHandles = tempDiv.querySelectorAll('.column-resize-handle');
-        resizeHandles.forEach(function(handle) {
-            handle.remove();
-        });
-        
-        // Remove UI classes from tables
-        var tables = tempDiv.querySelectorAll('table');
-        tables.forEach(function(table) {
-            table.classList.remove('resizable-added');
-            table.style.position = '';
-        });
-        
-        // Return the cleaned HTML
-        return tempDiv.innerHTML;
-    }
-    
-    // Function to format HTML using js-beautify
-    function formatHtml(html) {
-        if (typeof html_beautify === 'undefined') {
-            console.warn('js-beautify not available, returning unformatted HTML');
-            return html;
-        }
-        
-        try {
-            return html_beautify(html, {
-                indent_size: 2,
-                indent_char: ' ',
-                max_preserve_newlines: 2,
-                preserve_newlines: true,
-                keep_array_indentation: false,
-                break_chained_methods: false,
-                indent_scripts: 'normal',
-                brace_style: 'collapse',
-                space_before_conditional: true,
-                unescape_strings: false,
-                jslint_happy: false,
-                end_with_newline: true,
-                wrap_line_length: 0,
-                indent_inner_html: true,
-                comma_first: false,
-                e4x: false,
-                indent_empty_lines: false
-            });
-        } catch (error) {
-            console.error('Error formatting HTML:', error);
-            return html;
-        }
     }
 
     // Function to show the edit image modal
@@ -341,30 +644,16 @@ $(document).ready(function() {
         $('#imageLinkModal').modal('show');
     }
 
-    // Function to mark existing linked images with data-linked attribute
-    function markExistingLinkedImages() {
-        $('.note-editable img').each(function() {
-            var $img = $(this);
-            if ($img.closest('a').length > 0) {
-                $img.attr('data-linked', 'true');
-            }
-        });
-    }
-
-    // Function to validate URL format
-    function isValidUrl(string) {
-        // Basic validation - just check if it's not empty and has some content
-        return string && string.trim().length > 0;
-    }
-
     // Simple function to find a specific image using a unique identifier
     function findSpecificImage(imageInfo) {
-        if (!imageInfo || !imageInfo.element || !imageInfo.src) {
+        if (!imageInfo || !imageInfo.element) {
             return null;
         }
         
         // First, try to find images with the same src
         var $candidates = $('.note-editable img[src="' + imageInfo.src + '"]');
+        
+
         
         if ($candidates.length === 0) {
             return null;
@@ -449,26 +738,6 @@ $(document).ready(function() {
         return button.render();
     };
 
-    // Edit Image Link Button for Popover
-    var EditImageLinkButton = function (context) {
-        var ui = $.summernote.ui;
-        
-        var button = ui.button({
-            contents: '<i class="fas fa-link"></i> Link',
-            tooltip: 'Edit Image Link',
-            click: function () {
-                var target = $('#summernote').summernote('restoreTarget');
-                if (target && target.tagName === 'IMG') {
-                    showImageLinkModal(target);
-                } else {
-                    alert('Please select an image to edit its link');
-                }
-            }
-        });
-        
-        return button.render();
-    };
-
     // Custom Save Button
     var SaveButton = function (context) {
         var ui = $.summernote.ui;
@@ -495,11 +764,11 @@ $(document).ready(function() {
         var button = ui.button({
             contents: '<i class="fas fa-eye"></i>',
             tooltip: 'Preview',
-          click: function () {
+            click: function () {
                 // Placeholder for preview functionality
                 console.log('Preview button clicked - functionality to be implemented');
                 alert('Preview functionality will be implemented here');
-          }
+            }
         });
       
         return button.render(); // return button as jquery object
@@ -628,17 +897,15 @@ $(document).ready(function() {
     };
 
     // Initialize Summernote
-    const tableConfig = TableManager.getSummernoteConfig();
     $('#summernote').summernote({
         disableDragAndDrop: true,
-        tableClassName: tableConfig.tableClassName,
+        tableClassName: 'summernote-table',
         buttons: {
             assetManager: AssetManagerButton,
             linkCustom: LinkButton,
             codeViewCustom: CodeViewButton,
             customAlignDropdown: CustomAlignDropdown,
             editImage: EditImageButton,
-            editImageLink: EditImageLinkButton,
             saveButton: SaveButton,
             previewButton: PreviewButton,
             divider: DividerButton,
@@ -686,16 +953,17 @@ $(document).ready(function() {
             image: [
                 ['imagesize', ['imageSize100', 'imageSize50']],
                 ['float', ['floatLeft', 'floatRight', 'floatNone']],
-                ['edit', ['editImage', 'editImageLink']],
+                ['edit', ['editImage']],
                 ['remove', ['removeMedia']]
             ],
             link: [
-                ['link', ['linkCustom', 'unlink']]
+                ['link', ['linkDialogShow', 'unlink']]
             ],
-            // Completely disable ALL link popovers
-            'a[href]': false,
-            'a': false,
-            table: tableConfig.table,
+            table: [
+                ['add', ['addRowDown', 'addRowUp', 'addColLeft', 'addColRight']],
+                ['delete', ['deleteRow', 'deleteCol', 'deleteTable']],
+                ['color', ['cellBackgroundColor']]
+            ],
             video: [
                 ['videosize', ['videoSize100', 'videoSize75', 'videoSize50']],
                 ['float', ['floatLeft', 'floatRight', 'floatNone']],
@@ -728,10 +996,9 @@ $(document).ready(function() {
             onInit: function() {
                 setTimeout(function() {
                     // Clean up any existing tables and make them resizable
-                    TableManager.onContentChange();
+                    cleanupTableStyles();
+                    makeTablesResizable();
                     makeVideosResizable();
-                    // Mark existing linked images
-                    markExistingLinkedImages();
                 }, 100);
 
                 // Initialize style dropdown with default value
@@ -793,10 +1060,9 @@ $(document).ready(function() {
             onChange: function(contents, $editable) {
                 // When content changes, check for new elements and make them resizable
                 // Also clean up any tables with inline styles
-                TableManager.onContentChange();
+                cleanupTableStyles();
+                makeTablesResizable();
                 makeVideosResizable();
-                // Mark existing linked images
-                markExistingLinkedImages();
             },
             onKeyup: function(e) {
                 updateStyleDropdownFromSelection();
@@ -806,35 +1072,6 @@ $(document).ready(function() {
             }
         }
     });
-
-    // Hide the link popover only when it appears near images
-    $('#summernote').on('summernote.popover.show', function(e, $popover) {
-        // Only hide if it's a link popover AND near an image
-        if ($popover.hasClass('note-link-popover')) {
-            var target = $('#summernote').summernote('restoreTarget');
-            if (target && (target.tagName === 'IMG' || target.closest('img'))) {
-                $popover.hide();
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-        }
-    });
-
-    // Hide link popovers only when they appear near images
-    setInterval(function() {
-        $('.note-link-popover').each(function() {
-            var $popover = $(this);
-            var $prev = $popover.prev();
-            var $next = $popover.next();
-            
-            // Only hide if this link popover is near an image
-            if ($prev.is('img') || $next.is('img') || 
-                $prev.find('img').length > 0 || $next.find('img').length > 0) {
-                $popover.hide();
-            }
-        });
-    }, 10);
 
     // Fix for image duplication on drag-and-drop inside Summernote
 $('#summernote').on('dragstart', 'img', function(e) {
@@ -944,9 +1181,9 @@ $('#summernote').on('click', function(e) {
             if ($('#textLinkModal').hasClass('show')) {
                 console.log('Text Link Modal: Already open, not opening again');
                 $('#manualLinkBtn').removeClass('processing');
-            return;
-        }
-        
+                return;
+            }
+            
             // Store the selection in the modal's data for later use
             $('#textLinkModal').data('selectionRange', selectionRange);
             $('#textLinkModal').data('hasSelection', hasSelection);
@@ -970,10 +1207,208 @@ $('#summernote').on('click', function(e) {
         }, 100);  // Small delay to ensure our modal is closed first
     });
 
+    $('#assetLinkBtn').off('click').on('click', function() {
+        // Get the stored selection from the modal
+        var selectionRange = $('#linkOptionsModal').data('selectionRange');
+        var hasSelection = $('#linkOptionsModal').data('hasSelection');
+        
+        // Store the selection in the asset manager modal for later use
+        $('#assetManagerModal').data('selectionRange', selectionRange);
+        $('#assetManagerModal').data('hasSelection', hasSelection);
+        $('#assetManagerModal').data('mode', 'link');
+        
+        // Close our modal
+        $('#linkOptionsModal').modal('hide');
+        
+        // Open the asset manager with link mode
+        $('#assetManagerModal').modal('show');
+    });
 
+    // View toggle handlers
+    $('#gridViewBtn').click(function() {
+        $(this).addClass('active');
+        $('#listViewBtn').removeClass('active');
+        $('#assetTree').hide();
+        $('#assetGrid').show();
+    });
+    
+    $('#listViewBtn').click(function() {
+        $(this).addClass('active');
+        $('#gridViewBtn').removeClass('active');
+        $('#assetGrid').hide();
+        $('#assetTree').show();
+    });
 
+    // Asset Manager Event Handlers
+    $('#createFolderBtn').off('click').on('click', function() {
+        const folderName = prompt('Enter folder name:');
+        if (folderName) {
+            assetStore.addFolder(folderName);
+        }
+    });
 
+    $('#uploadBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Reset the input and trigger file selection dialog
+        const fileInput = $('#assetUpload')[0];
+        fileInput.value = '';
+        fileInput.click();
+    });
 
+    $('#assetUpload').off('change').on('change', function(e) {
+        e.preventDefault();
+        
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            Array.from(files).forEach(file => {
+                assetStore.addFile(file);
+            });
+        }
+    });
+
+    $('#selectAssetBtn').off('click').on('click', function() {
+        let selectedId;
+        
+        // Check which view is active and get the selected item
+        if ($('#gridViewBtn').hasClass('active')) {
+            const selected = $('#assetGrid .asset-item.selected');
+            if (selected.length) {
+                selectedId = selected.data('id');
+            }
+        } else {
+            const selected = $('#assetTree li.selected');
+            if (selected.length) {
+                selectedId = selected.data('id');
+            }
+        }
+        
+        if (!selectedId) {
+            alert('Please select an asset first');
+            return;
+        }
+        
+        // Special case for back button
+        if (selectedId === 'back') {
+            alert('Please select a file, not the back button');
+            return;
+        }
+        
+        // Find the selected item in the current folder
+        const currentFolder = assetStore.getCurrentFolder();
+        
+        // Convert selectedId to string to ensure consistent comparison
+        const item = currentFolder.children.find(
+            child => String(child.id) === String(selectedId)
+        );
+        
+        if (!item) {
+            console.error('Item not found for ID:', selectedId);
+            return;
+        }
+        
+        if (item.type === 'folder') {
+            alert('Please select a file, not a folder');
+            return;
+        }
+        
+        // Now we're sure this is a file and we found it
+        const mode = $('#assetManagerModal').data('mode') || 'insert';
+        
+        if (mode === 'link') {
+            // For link dialog - we need to create the link at the correct position
+            var selectionRange = $('#assetManagerModal').data('selectionRange');
+            var hasSelection = $('#assetManagerModal').data('hasSelection');
+            
+            // Close the modal first
+            $('#assetManagerModal').modal('hide');
+            
+            // Create the link at the correct position
+            setTimeout(function() {
+                if (hasSelection && selectionRange) {
+                    // Restore the selection
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(selectionRange);
+                    
+                    // Create the link at the selected position
+                    $('#summernote').summernote('createLink', {
+                        text: item.name,
+                        url: item.data,
+                        isNewWindow: true
+                    });
+                } else {
+                    // No selection, create link at cursor position
+                    $('#summernote').summernote('createLink', {
+                        text: item.name,
+                        url: item.data,
+                        isNewWindow: true
+                    });
+                }
+            }, 100);
+            
+            return; // Exit early since we handled the link creation
+        } else {
+            // Direct insert - HANDLE ONLY ONE INSERT TYPE
+            if (item.mimeType && item.mimeType.startsWith('image/')) {
+                // Insert image directly into the editor
+                const image = $('<img>')
+                    .attr('src', item.data)
+                    .attr('alt', item.name)
+                    .css('max-width', '100%');
+                
+                $('#summernote').summernote('insertNode', image[0]);
+            } else {
+                // Insert as a link
+                $('#summernote').summernote('createLink', {
+                    text: item.name,
+                    url: item.data,
+                    isNewWindow: true
+                });
+            }
+        }
+        
+        // Close the modal when done
+        $('#assetManagerModal').modal('hide');
+    });
+
+    // Selection handlers for both views
+    $('#assetTree').on('click', 'li', function(e) {
+        // Don't select if clicking on the delete button
+        if ($(e.target).closest('.delete-btn').length === 0) {
+            $('#assetTree li').removeClass('selected');
+            $('#assetGrid .asset-item').removeClass('selected');
+            $(this).addClass('selected');
+        }
+    });
+    
+    $('#assetGrid').on('click', '.asset-item', function(e) {
+        // Don't select if clicking on the delete button
+        if ($(e.target).closest('.delete-btn').length === 0) {
+            $('#assetTree li').removeClass('selected');
+            $('#assetGrid .asset-item').removeClass('selected');
+            $(this).addClass('selected');
+        }
+    });
+
+    // Initialize on modal show
+    $('#assetManagerModal').on('show.bs.modal', function() {
+        // Default to grid view
+        $('#gridViewBtn').addClass('active');
+        $('#listViewBtn').removeClass('active');
+        $('#assetGrid').show();
+        $('#assetTree').hide();
+        
+        // Clear any previously selected items
+        $('#assetGrid .asset-item').removeClass('selected');
+        $('#assetTree li').removeClass('selected');
+        
+        assetStore.renderTree();
+    }).on('hidden.bs.modal', () => {
+        // Reset mode when modal is closed
+        $('#assetManagerModal').removeData('mode');
+    });
 
     // Add resize handle to the editor
     const $editor = $('.note-editor');
@@ -1004,6 +1439,185 @@ $('#summernote').on('click', function(e) {
         });
     }
 
+    // Function to clean up tables with inline styles and convert to CSS classes
+    function cleanupTableStyles() {
+        const $editor = $('.note-editable');
+        
+        // Find all tables in the editor
+        $editor.find('table').each(function() {
+            const $table = $(this);
+            
+            // Add the summernote-table class if not already present
+            if (!$table.hasClass('summernote-table')) {
+                $table.addClass('summernote-table');
+            }
+            
+            // Remove inline styles from table elements
+            $table.removeAttr('style');
+            $table.find('th, td').each(function() {
+                const $cell = $(this);
+                const cellStyle = $cell.attr('style');
+                
+                if (cellStyle) {
+                    // Parse the style attribute to extract useful information
+                    const styles = {};
+                    cellStyle.split(';').forEach(function(style) {
+                        const [property, value] = style.split(':').map(s => s.trim());
+                        if (property && value) {
+                            styles[property] = value;
+                        }
+                    });
+                    
+                    // Convert common inline styles to CSS classes
+                    if (styles['text-align']) {
+                        switch (styles['text-align']) {
+                            case 'left':
+                                $cell.addClass('text-left');
+                                break;
+                            case 'center':
+                                $cell.addClass('text-center');
+                                break;
+                            case 'right':
+                                $cell.addClass('text-right');
+                                break;
+                            case 'justify':
+                                $cell.addClass('text-justify');
+                                break;
+                        }
+                    }
+                    
+                    if (styles['vertical-align']) {
+                        switch (styles['vertical-align']) {
+                            case 'top':
+                                $cell.addClass('align-top');
+                                break;
+                            case 'middle':
+                                $cell.addClass('align-middle');
+                                break;
+                            case 'bottom':
+                                $cell.addClass('align-bottom');
+                                break;
+                        }
+                    }
+                    
+                    // Remove the inline style attribute
+                    $cell.removeAttr('style');
+                }
+            });
+        });
+    }
+
+    // Function to make table columns resizable
+    function makeTablesResizable() {
+        const $editor = $('.note-editable');
+        
+        // First, clean up any existing table styles
+        cleanupTableStyles();
+        
+        // Find all tables in the editor
+        $editor.find('table').each(function() {
+            const $table = $(this);
+            
+            // Skip if already processed
+            if ($table.hasClass('resizable-added')) return;
+            
+            // Mark as processed
+            $table.addClass('resizable-added');
+            
+            // Create column resize handles for the entire table
+            const $headerRow = $table.find('tr:first');
+            const columnCount = $headerRow.find('th, td').length;
+            
+            // Create a container for the resize handles
+            const $resizeContainer = $('<div class="table-resize-container"></div>').css({
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none'
+            });
+            
+            // Position the table relatively to allow absolute positioning of handles
+            $table.css('position', 'relative').append($resizeContainer);
+            
+            // Add resize handles between columns
+            for (let i = 0; i < columnCount - 1; i++) {
+                const cells = $table.find(`tr td:nth-child(${i + 1}), tr th:nth-child(${i + 1})`);
+                if (cells.length === 0) continue;
+                
+                // Calculate position for the resize handle
+                const lastCell = cells.last();
+                const cellRight = cells.first().position().left + cells.first().outerWidth();
+                
+                // Create the resize handle that spans the entire height of the table
+                const $resizeHandle = $('<div class="column-resize-handle"></div>').css({
+                    position: 'absolute',
+                    top: 0,
+                    left: cellRight - 3,
+                    width: '6px',
+                    height: '100%',
+                    cursor: 'col-resize',
+                    pointerEvents: 'auto',
+                    zIndex: 1
+                });
+                
+                $resizeContainer.append($resizeHandle);
+                
+                // Add event listener for resize handle
+                $resizeHandle.on('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const startX = e.pageX;
+                    const columnCells = $table.find(`tr td:nth-child(${i + 1}), tr th:nth-child(${i + 1})`);
+                    const nextColumnCells = $table.find(`tr td:nth-child(${i + 2}), tr th:nth-child(${i + 2})`);
+                    const startWidth = columnCells.first().outerWidth();
+                    const tableWidth = $table.width();
+                    
+                    // Add overlay to capture mouse events
+                    const $overlay = $('<div class="resize-overlay"></div>').css({
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        cursor: 'col-resize',
+                        zIndex: 9999
+                    }).appendTo('body');
+                    
+                    $overlay.on('mousemove', function(e) {
+                        const diffX = e.pageX - startX;
+                        const newWidth = Math.max(20, startWidth + diffX);
+                        
+                        // Set width for all cells in this column
+                        columnCells.width(newWidth);
+                        
+                        // Update the position of this and all subsequent resize handles
+                        updateResizeHandlePositions($table);
+                    });
+                    
+                    $overlay.on('mouseup', function() {
+                        $overlay.remove();
+                    });
+                });
+            }
+        });
+    }
+    
+    // Function to update resize handle positions after resizing
+    function updateResizeHandlePositions($table) {
+        const $handles = $table.find('.column-resize-handle');
+        const $headerRow = $table.find('tr:first');
+        
+        $headerRow.find('th, td').each(function(index, cell) {
+            if (index < $handles.length) {
+                const $cell = $(cell);
+                const cellRight = $cell.position().left + $cell.outerWidth();
+                $($handles[index]).css('left', cellRight - 3);
+            }
+        });
+    }
 
     // Function to make videos and iframes resizable
     function makeVideosResizable() {
@@ -1212,7 +1826,23 @@ $('#summernote').on('click', function(e) {
         }
     });
 
+    // Try to load data from session storage on page load
+    const dataLoaded = assetStore.loadFromSessionStorage();
+    
+    if (dataLoaded) {
+        // If we loaded data, render the tree
+        assetStore.renderTree();
+    } else {
+        // If no data was found, initialize with a default empty structure
+        console.log('No saved data found, starting with empty asset manager');
+    }
 
+    // Alternative approach using event delegation
+    $(document).off('click', '#clearAllAssetsBtn').on('click', '#clearAllAssetsBtn', function() {
+        if (confirm('Are you sure you want to clear ALL assets and folders? This cannot be undone.')) {
+            assetStore.clearAll();
+        }
+    });
 
     // Add the code view modal HTML to the page
     const codeViewModal = `
@@ -1221,14 +1851,9 @@ $('#summernote').on('click', function(e) {
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">HTML Code View</h5>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="formatCodeBtn" title="Format HTML">
-                            <i class="fas fa-code"></i> Format
-                        </button>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
-                    </div>
                 </div>
                 <div class="modal-body">
                     <textarea id="codeViewTextarea" style="width: 100%; height: 400px;"></textarea>
@@ -1302,7 +1927,7 @@ $('#summernote').on('click', function(e) {
                     <form id="imageLinkForm">
                         <div class="form-group">
                             <label for="imageLinkUrl">URL</label>
-                            <input type="text" class="form-control" id="imageLinkUrl" placeholder="Enter URL (e.g., example.com)">
+                            <input type="url" class="form-control" id="imageLinkUrl" placeholder="Enter URL (e.g., https://example.com)">
                         </div>
                         <div class="form-group">
                             <label for="imageLinkTitle">Link Title (tooltip)</label>
@@ -1390,8 +2015,11 @@ $('#summernote').on('click', function(e) {
     });
     
     $('#imageLinkModal').on('hidden.bs.modal', function() {
-        // Always clear the reference when modal is hidden
-        window.currentLinkingImage = null;
+        // Only clear if no operation is in progress
+        if (!isImageLinkOperationInProgress) {
+            window.currentLinkingImage = null;
+        }
+        // Reset the flag
         isImageLinkOperationInProgress = false;
     });
     
@@ -1490,40 +2118,6 @@ $('#summernote').on('click', function(e) {
         
         // Close the modal
         $('#codeViewModal').modal('hide');
-    });
-    
-    // Handle formatting code when the Format button is clicked
-    $('#formatCodeBtn').click(function() {
-        // Get the current code from CodeMirror or the textarea
-        let currentCode;
-        if (window.codeViewCodeMirror) {
-            currentCode = window.codeViewCodeMirror.getValue();
-        } else {
-            currentCode = $('#codeViewTextarea').val();
-        }
-        
-        // Clean the code first (remove UI elements)
-        let cleanCode = cleanHtmlForCodeView(currentCode);
-        
-        // Format the code
-        let formattedCode = formatHtml(cleanCode);
-        
-        // Update the CodeMirror editor with formatted code
-        if (window.codeViewCodeMirror) {
-            window.codeViewCodeMirror.setValue(formattedCode);
-            window.codeViewCodeMirror.refresh();
-        } else {
-            $('#codeViewTextarea').val(formattedCode);
-        }
-        
-        // Show a brief success message
-        const $btn = $(this);
-        const originalText = $btn.html();
-        $btn.html('<i class="fas fa-check"></i> Formatted').addClass('btn-success').removeClass('btn-outline-secondary');
-        
-        setTimeout(function() {
-            $btn.html(originalText).removeClass('btn-success').addClass('btn-outline-secondary');
-        }, 1500);
     });
 
     // Handle applying image edits when the Apply button is clicked
@@ -1747,13 +2341,6 @@ $('#summernote').on('click', function(e) {
         
         if (!url) {
             alert('Please enter a URL');
-            isImageLinkOperationInProgress = false;
-            return;
-        }
-        
-        if (!isValidUrl(url)) {
-            alert('Please enter a valid URL');
-            isImageLinkOperationInProgress = false;
             return;
         }
         
@@ -1761,7 +2348,6 @@ $('#summernote').on('click', function(e) {
         var $image = findSpecificImage(window.currentLinkingImage);
         if (!$image || $image.length === 0) {
             alert('Could not find the selected image');
-            isImageLinkOperationInProgress = false;
             return;
         }
         
@@ -1780,41 +2366,19 @@ $('#summernote').on('click', function(e) {
             } else {
                 $existingLink.removeAttr('target');
             }
-            
-            // Mark image as linked
-            $image.attr('data-linked', 'true');
         } else {
-            // Check if image is already wrapped in a link to prevent double-wrapping
-            if ($image.closest('a').length > 0) {
-                console.warn('Image is already wrapped in a link, updating existing link instead');
-                var $existingLink = $image.closest('a');
-                $existingLink.attr({
-                    'href': url,
-                    'title': title
-                });
-                
-                if (newWindow) {
-                    $existingLink.attr('target', '_blank');
-                } else {
-                    $existingLink.removeAttr('target');
-                }
-            } else {
-                // Create new link
-                var $link = $('<a>').attr({
-                    'href': url,
-                    'title': title
-                });
-                
-                if (newWindow) {
-                    $link.attr('target', '_blank');
-                }
-                
-                // Wrap the image in the link
-                $image.wrap($link);
+            // Create new link
+            var $link = $('<a>').attr({
+                'href': url,
+                'title': title
+            });
+            
+            if (newWindow) {
+                $link.attr('target', '_blank');
             }
             
-            // Mark image as linked
-            $image.attr('data-linked', 'true');
+            // Wrap the image in the link
+            $image.wrap($link);
         }
         
         // Store the image src for cleanup
@@ -1844,7 +2408,6 @@ $('#summernote').on('click', function(e) {
         var $image = findSpecificImage(window.currentLinkingImage);
         if (!$image || $image.length === 0) {
             alert('Could not find the selected image');
-            isImageLinkOperationInProgress = false;
             return;
         }
         
@@ -1854,9 +2417,6 @@ $('#summernote').on('click', function(e) {
             // Unwrap the image from the link
             $image.insertBefore($link);
             $link.remove();
-            
-            // Remove linked indicator
-            $image.removeAttr('data-linked');
             
             // Clear the form fields
             $('#imageLinkUrl').val('');
@@ -1868,13 +2428,11 @@ $('#summernote').on('click', function(e) {
             $('#removeImageLinkBtn').hide();
         }
         
-        // Close the modal first
-        $('#imageLinkModal').modal('hide');
+        // Clear the stored image reference first
+        window.currentLinkingImage = null;
         
-        // Clear the stored image reference after modal starts closing
-        setTimeout(function() {
-            window.currentLinkingImage = null;
-        }, 100);
+        // Close the modal
+        $('#imageLinkModal').modal('hide');
     });
 
     // Function to update style dropdown based on selection
@@ -1942,9 +2500,7 @@ $('#summernote').on('click', function(e) {
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             savedCursorPosition = selection.getRangeAt(0).cloneRange();
-            console.log('Saved cursor position - rangeCount:', selection.rangeCount, 'text:', selection.toString());
-        } else {
-            console.log('No selection to save cursor position');
+            console.log('Saved cursor position');
         }
     }
     
@@ -1953,16 +2509,17 @@ $('#summernote').on('click', function(e) {
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(savedCursorPosition);
-            console.log('Restored cursor position - rangeCount:', selection.rangeCount, 'text:', selection.toString());
+            console.log('Restored cursor position');
             savedCursorPosition = null;
-        } else {
-            console.log('No saved cursor position to restore');
         }
     }
     
     function showSpectrumColorPicker(colorType = 'foreground') {
         currentColorType = colorType;
         console.log('Opening color picker for type:', colorType);
+        
+        // Save the current cursor position before opening the modal
+        saveCursorPosition();
         
         // Check if we have a selection
         const selection = window.getSelection();
@@ -1972,9 +2529,6 @@ $('#summernote').on('click', function(e) {
             $('#summernote').summernote('focus');
             // Don't move cursor - let it stay where it is
         }
-        
-        // Save the current cursor position after focusing the editor
-        saveCursorPosition();
         
         // Debug: Log the current editor content
         console.log('=== EDITOR CONTENT DEBUG ===');
@@ -2226,8 +2780,8 @@ $('#summernote').on('click', function(e) {
     
     function setupColorPickerEventHandlers() {
         // Remove existing event listeners to prevent duplicates
-        $('#hexInput').off('input.colorPicker keyup.colorPicker focus.colorPicker');
-        $('#rgbInput').off('input.colorPicker keyup.colorPicker focus.colorPicker');
+        $('#hexInput').off('input.colorPicker keyup.colorPicker');
+        $('#rgbInput').off('input.colorPicker keyup.colorPicker');
         $('#applyColorBtn').off('click.colorPicker');
         
         // Update color picker when hex input changes
@@ -2268,37 +2822,12 @@ $('#summernote').on('click', function(e) {
             }
         });
         
-        // Save cursor position when input fields gain focus (only if not already saved)
-        $('#hexInput').on('focus.colorPicker', function() {
-            if (!savedCursorPosition) {
-                saveCursorPosition();
-                console.log('Saved cursor position when hex input focused');
-            }
-        });
-        
-        $('#rgbInput').on('focus.colorPicker', function() {
-            if (!savedCursorPosition) {
-                saveCursorPosition();
-                console.log('Saved cursor position when RGB input focused');
-            }
-        });
-        
-        // Monitor for any focus changes that might affect cursor position
-        $(document).on('focus.colorPicker', function(e) {
-            // If focus moves to color picker components, ensure we have cursor position saved
-            if ($(e.target).closest('#colorPickerModal').length > 0) {
-                if (!savedCursorPosition) {
-                    saveCursorPosition();
-                    console.log('Saved cursor position due to focus change in color picker modal');
-                }
-            }
-        });
-        
         // Apply color when button is clicked
         $('#applyColorBtn').on('click.colorPicker', function() {
             const currentInstance = getCurrentColorPickerInstance();
             if (currentInstance && currentInstance.color) {
-                console.log('Applying color:', currentInstance.color.hexString, 'Saved cursor position exists:', !!savedCursorPosition);
+                // Clear saved cursor position since we're applying color
+                savedCursorPosition = null;
                 applyColorToSelection(currentInstance.color.hexString);
                 $('#colorPickerModal').modal('hide');
             } else {
@@ -2588,11 +3117,6 @@ $('#summernote').on('click', function(e) {
         if (!color || color === '') {
             console.error('Invalid color provided');
             return;
-        }
-        
-        // Restore cursor position first if we have one saved
-        if (savedCursorPosition) {
-            restoreCursorPosition();
         }
         
         // Check if we have a selection
