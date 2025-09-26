@@ -969,6 +969,18 @@ body {
     border-color: #1e7e34;
 }
 
+/* Edit Image Link Button in Popover */
+.note-popover .note-btn[data-event="editImageLink"] {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.note-popover .note-btn[data-event="editImageLink"]:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
 /* Edit Image Modal Button States */
 #editImageModal .btn.processing {
     opacity: 0.6;
@@ -1082,4 +1094,57 @@ body {
 
 .note-btn[data-event="backgroundColor"]:after {
     background-color: #ff0000; /* Default red for background color indicator */
+}
+
+/* Linked Image Visual Indicators */
+.note-editable img[data-linked="true"] {
+    border: 2px solid #007bff !important;
+    border-radius: 4px;
+    position: relative;
+}
+
+.note-editable img[data-linked="true"]:hover {
+    border-color: #0056b3 !important;
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+}
+
+/* Link icon overlay for linked images */
+.note-editable img[data-linked="true"]::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 16px;
+    height: 16px;
+    background: #007bff;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.note-editable img[data-linked="true"]::before {
+    content: "🔗";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 8px;
+    color: white;
+    pointer-events: none;
+    z-index: 11;
+    line-height: 1;
+}
+
+/* Selection styling for linked images */
+.note-editable img[data-linked="true"]:focus,
+.note-editable img[data-linked="true"].note-image-selected {
+    outline: 3px solid #007bff !important;
+    outline-offset: 2px;
+}
+
+/* Hide the link popover only when it appears near images */
+.note-editable img + .note-popover.note-link-popover,
+.note-editable img ~ .note-popover.note-link-popover,
+.note-editable a[href] img + .note-popover.note-link-popover,
+.note-editable a[href] img ~ .note-popover.note-link-popover {
+    display: none !important;
 }

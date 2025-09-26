@@ -61,10 +61,16 @@ $(document).ready(function() {
                         }
                     }
                     
-                    // Also check if the selection is within an image
+                    // Also check if the selection is within an image or its container
                     var imgParent = $(commonAncestor).closest('img');
                     if (imgParent.length > 0) {
                         target = imgParent[0];
+                    }
+                    
+                    // Check if the selection is within a container that has an image (for floated images)
+                    var containerWithImg = $(commonAncestor).closest('div, p, span').find('img');
+                    if (containerWithImg.length > 0) {
+                        target = containerWithImg[0];
                     }
                 }
                 
@@ -73,21 +79,36 @@ $(document).ready(function() {
                     target = $('#summernote').summernote('restoreTarget');
                 }
                 
-                // Debug logging
-                console.log('LinkButton: target found:', target);
-                console.log('LinkButton: target tagName:', target ? target.tagName : 'none');
+                // Additional fallback: check if the current selection is near an image
+                if (!target && selection.rangeCount > 0) {
+                    var range = selection.getRangeAt(0);
+                    var startContainer = range.startContainer;
+                    var endContainer = range.endContainer;
+                    
+                    // Check if we're adjacent to an image
+                    var $startContainer = $(startContainer);
+                    var $endContainer = $(endContainer);
+                    
+                    // Look for images in the same container or adjacent containers
+                    var nearbyImg = $startContainer.find('img').add($endContainer.find('img'))
+                        .add($startContainer.siblings('img')).add($endContainer.siblings('img'))
+                        .add($startContainer.parent().find('img')).add($endContainer.parent().find('img'));
+                    
+                    if (nearbyImg.length > 0) {
+                        target = nearbyImg[0];
+                    }
+                }
                 
+                // Simple check: if target is an image, show image modal, otherwise show text modal
                 if (target && (target.tagName === 'IMG' || (target.tagName === 'A' && target.querySelector('img')))) {
-                    // Image is selected (either directly or wrapped in a link), show image link options
-                    console.log('LinkButton: showing image link modal');
+                    // Image is selected, show image link options
                     showImageLinkModal(target);
-                } else {
+                    } else {
                     // Text is selected or nothing selected, show regular link options
                     // Store the selection in the modal's data for later use
                     $('#linkOptionsModal').data('selectionRange', selectionRange);
                     $('#linkOptionsModal').data('hasSelection', hasSelection);
                     
-                    console.log('LinkButton: showing text link options modal');
                     $('#linkOptionsModal').modal('show');
                 }
             }
@@ -135,7 +156,7 @@ $(document).ready(function() {
             if (window.codeViewCodeMirror) {
                 window.codeViewCodeMirror.setValue(formattedHtml);
                 window.codeViewCodeMirror.refresh();
-            } else {
+                } else {
                 window.codeViewCodeMirror = CodeMirror.fromTextArea(
                     document.getElementById('codeViewTextarea'), 
                     {
@@ -320,16 +341,30 @@ $(document).ready(function() {
         $('#imageLinkModal').modal('show');
     }
 
+    // Function to mark existing linked images with data-linked attribute
+    function markExistingLinkedImages() {
+        $('.note-editable img').each(function() {
+            var $img = $(this);
+            if ($img.closest('a').length > 0) {
+                $img.attr('data-linked', 'true');
+            }
+        });
+    }
+
+    // Function to validate URL format
+    function isValidUrl(string) {
+        // Basic validation - just check if it's not empty and has some content
+        return string && string.trim().length > 0;
+    }
+
     // Simple function to find a specific image using a unique identifier
     function findSpecificImage(imageInfo) {
-        if (!imageInfo || !imageInfo.element) {
+        if (!imageInfo || !imageInfo.element || !imageInfo.src) {
             return null;
         }
         
         // First, try to find images with the same src
         var $candidates = $('.note-editable img[src="' + imageInfo.src + '"]');
-        
-
         
         if ($candidates.length === 0) {
             return null;
@@ -414,6 +449,26 @@ $(document).ready(function() {
         return button.render();
     };
 
+    // Edit Image Link Button for Popover
+    var EditImageLinkButton = function (context) {
+        var ui = $.summernote.ui;
+        
+        var button = ui.button({
+            contents: '<i class="fas fa-link"></i> Link',
+            tooltip: 'Edit Image Link',
+            click: function () {
+                var target = $('#summernote').summernote('restoreTarget');
+                if (target && target.tagName === 'IMG') {
+                    showImageLinkModal(target);
+                } else {
+                    alert('Please select an image to edit its link');
+                }
+            }
+        });
+        
+        return button.render();
+    };
+
     // Custom Save Button
     var SaveButton = function (context) {
         var ui = $.summernote.ui;
@@ -440,11 +495,11 @@ $(document).ready(function() {
         var button = ui.button({
             contents: '<i class="fas fa-eye"></i>',
             tooltip: 'Preview',
-            click: function () {
+          click: function () {
                 // Placeholder for preview functionality
                 console.log('Preview button clicked - functionality to be implemented');
                 alert('Preview functionality will be implemented here');
-            }
+          }
         });
       
         return button.render(); // return button as jquery object
@@ -583,6 +638,7 @@ $(document).ready(function() {
             codeViewCustom: CodeViewButton,
             customAlignDropdown: CustomAlignDropdown,
             editImage: EditImageButton,
+            editImageLink: EditImageLinkButton,
             saveButton: SaveButton,
             previewButton: PreviewButton,
             divider: DividerButton,
@@ -630,12 +686,15 @@ $(document).ready(function() {
             image: [
                 ['imagesize', ['imageSize100', 'imageSize50']],
                 ['float', ['floatLeft', 'floatRight', 'floatNone']],
-                ['edit', ['editImage']],
+                ['edit', ['editImage', 'editImageLink']],
                 ['remove', ['removeMedia']]
             ],
             link: [
-                ['link', ['linkDialogShow', 'unlink']]
+                ['link', ['linkCustom', 'unlink']]
             ],
+            // Completely disable ALL link popovers
+            'a[href]': false,
+            'a': false,
             table: tableConfig.table,
             video: [
                 ['videosize', ['videoSize100', 'videoSize75', 'videoSize50']],
@@ -671,6 +730,8 @@ $(document).ready(function() {
                     // Clean up any existing tables and make them resizable
                     TableManager.onContentChange();
                     makeVideosResizable();
+                    // Mark existing linked images
+                    markExistingLinkedImages();
                 }, 100);
 
                 // Initialize style dropdown with default value
@@ -734,6 +795,8 @@ $(document).ready(function() {
                 // Also clean up any tables with inline styles
                 TableManager.onContentChange();
                 makeVideosResizable();
+                // Mark existing linked images
+                markExistingLinkedImages();
             },
             onKeyup: function(e) {
                 updateStyleDropdownFromSelection();
@@ -743,6 +806,35 @@ $(document).ready(function() {
             }
         }
     });
+
+    // Hide the link popover only when it appears near images
+    $('#summernote').on('summernote.popover.show', function(e, $popover) {
+        // Only hide if it's a link popover AND near an image
+        if ($popover.hasClass('note-link-popover')) {
+            var target = $('#summernote').summernote('restoreTarget');
+            if (target && (target.tagName === 'IMG' || target.closest('img'))) {
+                $popover.hide();
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }
+    });
+
+    // Hide link popovers only when they appear near images
+    setInterval(function() {
+        $('.note-link-popover').each(function() {
+            var $popover = $(this);
+            var $prev = $popover.prev();
+            var $next = $popover.next();
+            
+            // Only hide if this link popover is near an image
+            if ($prev.is('img') || $next.is('img') || 
+                $prev.find('img').length > 0 || $next.find('img').length > 0) {
+                $popover.hide();
+            }
+        });
+    }, 10);
 
     // Fix for image duplication on drag-and-drop inside Summernote
 $('#summernote').on('dragstart', 'img', function(e) {
@@ -852,9 +944,9 @@ $('#summernote').on('click', function(e) {
             if ($('#textLinkModal').hasClass('show')) {
                 console.log('Text Link Modal: Already open, not opening again');
                 $('#manualLinkBtn').removeClass('processing');
-                return;
-            }
-            
+            return;
+        }
+        
             // Store the selection in the modal's data for later use
             $('#textLinkModal').data('selectionRange', selectionRange);
             $('#textLinkModal').data('hasSelection', hasSelection);
@@ -1133,9 +1225,9 @@ $('#summernote').on('click', function(e) {
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="formatCodeBtn" title="Format HTML">
                             <i class="fas fa-code"></i> Format
                         </button>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
                     </div>
                 </div>
                 <div class="modal-body">
@@ -1210,7 +1302,7 @@ $('#summernote').on('click', function(e) {
                     <form id="imageLinkForm">
                         <div class="form-group">
                             <label for="imageLinkUrl">URL</label>
-                            <input type="url" class="form-control" id="imageLinkUrl" placeholder="Enter URL (e.g., https://example.com)">
+                            <input type="text" class="form-control" id="imageLinkUrl" placeholder="Enter URL (e.g., example.com)">
                         </div>
                         <div class="form-group">
                             <label for="imageLinkTitle">Link Title (tooltip)</label>
@@ -1298,11 +1390,8 @@ $('#summernote').on('click', function(e) {
     });
     
     $('#imageLinkModal').on('hidden.bs.modal', function() {
-        // Only clear if no operation is in progress
-        if (!isImageLinkOperationInProgress) {
-            window.currentLinkingImage = null;
-        }
-        // Reset the flag
+        // Always clear the reference when modal is hidden
+        window.currentLinkingImage = null;
         isImageLinkOperationInProgress = false;
     });
     
@@ -1658,6 +1747,13 @@ $('#summernote').on('click', function(e) {
         
         if (!url) {
             alert('Please enter a URL');
+            isImageLinkOperationInProgress = false;
+            return;
+        }
+        
+        if (!isValidUrl(url)) {
+            alert('Please enter a valid URL');
+            isImageLinkOperationInProgress = false;
             return;
         }
         
@@ -1665,6 +1761,7 @@ $('#summernote').on('click', function(e) {
         var $image = findSpecificImage(window.currentLinkingImage);
         if (!$image || $image.length === 0) {
             alert('Could not find the selected image');
+            isImageLinkOperationInProgress = false;
             return;
         }
         
@@ -1683,19 +1780,41 @@ $('#summernote').on('click', function(e) {
             } else {
                 $existingLink.removeAttr('target');
             }
-        } else {
-            // Create new link
-            var $link = $('<a>').attr({
-                'href': url,
-                'title': title
-            });
             
-            if (newWindow) {
-                $link.attr('target', '_blank');
+            // Mark image as linked
+            $image.attr('data-linked', 'true');
+        } else {
+            // Check if image is already wrapped in a link to prevent double-wrapping
+            if ($image.closest('a').length > 0) {
+                console.warn('Image is already wrapped in a link, updating existing link instead');
+                var $existingLink = $image.closest('a');
+                $existingLink.attr({
+                    'href': url,
+                    'title': title
+                });
+                
+                if (newWindow) {
+                    $existingLink.attr('target', '_blank');
+                } else {
+                    $existingLink.removeAttr('target');
+                }
+            } else {
+                // Create new link
+                var $link = $('<a>').attr({
+                    'href': url,
+                    'title': title
+                });
+                
+                if (newWindow) {
+                    $link.attr('target', '_blank');
+                }
+                
+                // Wrap the image in the link
+                $image.wrap($link);
             }
             
-            // Wrap the image in the link
-            $image.wrap($link);
+            // Mark image as linked
+            $image.attr('data-linked', 'true');
         }
         
         // Store the image src for cleanup
@@ -1725,6 +1844,7 @@ $('#summernote').on('click', function(e) {
         var $image = findSpecificImage(window.currentLinkingImage);
         if (!$image || $image.length === 0) {
             alert('Could not find the selected image');
+            isImageLinkOperationInProgress = false;
             return;
         }
         
@@ -1734,6 +1854,9 @@ $('#summernote').on('click', function(e) {
             // Unwrap the image from the link
             $image.insertBefore($link);
             $link.remove();
+            
+            // Remove linked indicator
+            $image.removeAttr('data-linked');
             
             // Clear the form fields
             $('#imageLinkUrl').val('');
@@ -1745,11 +1868,13 @@ $('#summernote').on('click', function(e) {
             $('#removeImageLinkBtn').hide();
         }
         
-        // Clear the stored image reference first
-        window.currentLinkingImage = null;
-        
-        // Close the modal
+        // Close the modal first
         $('#imageLinkModal').modal('hide');
+        
+        // Clear the stored image reference after modal starts closing
+        setTimeout(function() {
+            window.currentLinkingImage = null;
+        }, 100);
     });
 
     // Function to update style dropdown based on selection
